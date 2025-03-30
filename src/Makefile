@@ -24,7 +24,7 @@ UNIDIR = ../../jurassic-unified
 UNIFIED ?= 0
 
 # Static compilation...
-STATIC ?= 1
+STATIC ?= 0
 
 # Optimization flags...
 OPT ?= -O3
