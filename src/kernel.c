@@ -24,13 +24,29 @@
 
 #include "jurassic.h"
 
+/* ------------------------------------------------------------
+   Functions...
+   ------------------------------------------------------------ */
+
+/*! Perform kernel calculations in a single directory. */
+void call_kernel(
+  ctl_t * ctl,
+  const char *wrkdir,
+  const char *obsfile,
+  const char *atmfile,
+  const char *kernelfile);
+
+/* ------------------------------------------------------------
+   Main...
+   ------------------------------------------------------------ */
+
 int main(
   int argc,
   char *argv[]) {
 
-  static atm_t atm;
   static ctl_t ctl;
-  static obs_t obs;
+
+  char dirlist[LEN];
 
   /* Check arguments... */
   if (argc < 5)
@@ -39,18 +55,63 @@ int main(
   /* Read control parameters... */
   read_ctl(argc, argv, &ctl);
 
+  /* Get dirlist... */
+  scan_ctl(argc, argv, "DIRLIST", -1, "-", dirlist);
+
   /* Set flags... */
   ctl.write_matrix = 1;
 
+  /* Single kernel calculation... */
+  if (dirlist[0] == '-')
+    call_kernel(&ctl, NULL, argv[2], argv[3], argv[4]);
+
+  /* Work on directory list... */
+  else {
+
+    /* Open directory list... */
+    FILE *in;
+    if (!(in = fopen(dirlist, "r")))
+      ERRMSG("Cannot open directory list!");
+
+    /* Loop over directories... */
+    char wrkdir[LEN];
+    while (fscanf(in, "%4999s", wrkdir) != EOF) {
+
+      /* Write info... */
+      LOG(1, "\nWorking directory: %s", wrkdir);
+
+      /* Call forward model... */
+      call_kernel(&ctl, wrkdir, argv[2], argv[3], argv[4]);
+    }
+
+    /* Close dirlist... */
+    fclose(in);
+  }
+
+  return EXIT_SUCCESS;
+}
+
+/*****************************************************************************/
+
+void call_kernel(
+  ctl_t *ctl,
+  const char *wrkdir,
+  const char *obsfile,
+  const char *atmfile,
+  const char *kernelfile) {
+
+  static atm_t atm;
+  static obs_t obs;
+
   /* Read observation geometry... */
-  read_obs(NULL, argv[2], &ctl, &obs);
+  read_obs(wrkdir, obsfile, ctl, &obs);
 
   /* Read atmospheric data... */
-  read_atm(NULL, argv[3], &ctl, &atm);
+  read_atm(wrkdir, atmfile, ctl, &atm);
 
   /* Get sizes... */
-  const size_t n = atm2x(&ctl, &atm, NULL, NULL, NULL);
-  const size_t m = obs2y(&ctl, &obs, NULL, NULL, NULL);
+  const size_t n = atm2x(ctl, &atm, NULL, NULL, NULL);
+  const size_t m = obs2y(ctl, &obs, NULL, NULL, NULL);
 
   /* Check sizes... */
   if (n == 0)
@@ -62,13 +123,11 @@ int main(
   gsl_matrix *k = gsl_matrix_alloc(m, n);
 
   /* Compute kernel matrix... */
-  kernel(&ctl, &atm, &obs, k);
+  kernel(ctl, &atm, &obs, k);
 
   /* Write matrix to file... */
-  write_matrix(NULL, argv[4], &ctl, k, &atm, &obs, "y", "x", "r");
+  write_matrix(wrkdir, kernelfile, ctl, k, &atm, &obs, "y", "x", "r");
 
   /* Free... */
   gsl_matrix_free(k);
-
-  return EXIT_SUCCESS;
 }
