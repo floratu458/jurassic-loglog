@@ -8,9 +8,19 @@ These links provide further information for users of JURASSIC:
 
 * [Doxygen manual](https://slcs-jsc.github.io/jurassic/doxygen)
 
+* [Doxygen manual](https://slcs-jsc.github.io/jurassic/doxygen)
+
 * [Reference paper](https://doi.org/10.5194/gmd-15-1855-2022)
 
 * [Other references](https://slcs-jsc.github.io/jurassic/references)
+
+* [Citation file](https://github.com/slcs-jsc/jurassic/blob/master/CITATION.cff)
+
+* [Code of conduct](https://github.com/slcs-jsc/jurassic/blob/master/CODE_OF_CONDUCT.md)
+
+* [Contributing guidelines](https://github.com/slcs-jsc/jurassic/blob/master/CONTRIBUTING.md)
+
+* [Software dependencies](https://github.com/slcs-jsc/jurassic/blob/master/DEPENDENCIES.md)
 
 * [License](https://github.com/slcs-jsc/jurassic/blob/master/COPYING)
 
