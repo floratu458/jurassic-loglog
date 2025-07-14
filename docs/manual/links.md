@@ -1,6 +1,6 @@
 # Links
 
-These links provide further information for users of JURASSIC:
+These links provide further information for users and developers of JURASSIC:
 
 * [README file](https://github.com/slcs-jsc/jurassic/blob/master/README.md)
 
@@ -8,7 +8,7 @@ These links provide further information for users of JURASSIC:
 
 * [Doxygen manual](https://slcs-jsc.github.io/jurassic/doxygen)
 
-* [Doxygen manual](https://slcs-jsc.github.io/jurassic/doxygen)
+* [AI documentation](https://www.deepwiki.com/slcs-jsc/jurassic)
 
 * [Reference paper](https://doi.org/10.5194/gmd-15-1855-2022)
 
@@ -24,7 +24,7 @@ These links provide further information for users of JURASSIC:
 
 * [License](https://github.com/slcs-jsc/jurassic/blob/master/COPYING)
 
-These links provide further informaton for developers of JURASSIC:
+Links to external resources:
 
 * [Helmholtz Research Software Directory](https://helmholtz.software/software/jurassic)
 
