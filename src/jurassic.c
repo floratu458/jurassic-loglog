@@ -3900,32 +3900,26 @@ double intpol_tbl_eps(
   const int it,
   const double u) {
 
-  /* Lower boundary... */
-  if (u < tbl->u[id][ig][ip][it][0])
-    return LIN(0, 0, tbl->u[id][ig][ip][it][0], tbl->eps[id][ig][ip][it][0],
-	       u);
+  const int nu = tbl->nu[id][ig][ip][it];
+  const float *u_arr = tbl->u[id][ig][ip][it];
+  const float *eps_arr = tbl->eps[id][ig][ip][it];
 
-  /* Upper boundary... */
-  else if (u > tbl->u[id][ig][ip][it][tbl->nu[id][ig][ip][it] - 1]) {
-    const double a =
-      log(1 - tbl->eps[id][ig][ip][it][tbl->nu[id][ig][ip][it] - 1])
-      / tbl->u[id][ig][ip][it][tbl->nu[id][ig][ip][it] - 1];
-    return 1 - exp(a * u);
+  const double u_min = u_arr[0];
+  const double u_max = u_arr[nu - 1];
+
+  /* Lower extrapolation */
+  if (u < u_min)
+    return LIN(0.0, 0.0, u_min, eps_arr[0], u);
+
+  /* Upper extrapolation */
+  if (u > u_max) {
+    const double a = log(1.0 - eps_arr[nu - 1]) / u_max;
+    return 1.0 - exp(a * u);
   }
 
-  /* Interpolation... */
-  else {
-
-    /* Get index... */
-    const int idx =
-      locate_tbl(tbl->u[id][ig][ip][it], tbl->nu[id][ig][ip][it], u);
-
-    /* Interpolate... */
-    return
-      LIN(tbl->u[id][ig][ip][it][idx], tbl->eps[id][ig][ip][it][idx],
-	  tbl->u[id][ig][ip][it][idx + 1], tbl->eps[id][ig][ip][it][idx + 1],
-	  u);
-  }
+  /* Interpolation */
+  const int idx = locate_tbl(u_arr, nu, u);
+  return LIN(u_arr[idx], eps_arr[idx], u_arr[idx + 1], eps_arr[idx + 1], u);
 }
 
 /*****************************************************************************/
@@ -3938,32 +3932,26 @@ double intpol_tbl_u(
   const int it,
   const double eps) {
 
-  /* Lower boundary... */
-  if (eps < tbl->eps[id][ig][ip][it][0])
-    return LIN(0, 0, tbl->eps[id][ig][ip][it][0], tbl->u[id][ig][ip][it][0],
-	       eps);
+  const int nu = tbl->nu[id][ig][ip][it];
+  const float *eps_arr = tbl->eps[id][ig][ip][it];
+  const float *u_arr = tbl->u[id][ig][ip][it];
 
-  /* Upper boundary... */
-  else if (eps > tbl->eps[id][ig][ip][it][tbl->nu[id][ig][ip][it] - 1]) {
-    const double a =
-      log(1 - tbl->eps[id][ig][ip][it][tbl->nu[id][ig][ip][it] - 1])
-      / tbl->u[id][ig][ip][it][tbl->nu[id][ig][ip][it] - 1];
-    return log(1 - eps) / a;
+  const double eps_min = eps_arr[0];
+  const double eps_max = eps_arr[nu - 1];
+
+  /* Lower boundary extrapolation */
+  if (eps < eps_min)
+    return LIN(0.0, 0.0, eps_min, u_arr[0], eps);
+
+  /* Upper boundary extrapolation (log-inverse) */
+  if (eps > eps_max) {
+    const double a = log(1.0 - eps_max) / u_arr[nu - 1];
+    return log(1.0 - eps) / a;
   }
 
-  /* Interpolation... */
-  else {
-
-    /* Get index... */
-    const int idx =
-      locate_tbl(tbl->eps[id][ig][ip][it], tbl->nu[id][ig][ip][it], eps);
-
-    /* Interpolate... */
-    return
-      LIN(tbl->eps[id][ig][ip][it][idx], tbl->u[id][ig][ip][it][idx],
-	  tbl->eps[id][ig][ip][it][idx + 1], tbl->u[id][ig][ip][it][idx + 1],
-	  eps);
-  }
+  /* Interpolation */
+  const int idx = locate_tbl(eps_arr, nu, eps);
+  return LIN(eps_arr[idx], u_arr[idx], eps_arr[idx + 1], u_arr[idx + 1], eps);
 }
 
 /*****************************************************************************/
