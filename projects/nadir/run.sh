@@ -1,5 +1,11 @@
 #! /bin/bash
 
+# Set environment...
+export LD_LIBRARY_PATH=../../libs/build/lib:$LD_LIBRARY_PATH
+export OMP_NUM_THREADS=4
+export LANG=C
+export LC_ALL=C
+
 # Setup...
 jurassic=../../src
 
@@ -98,19 +104,19 @@ set pal def
 
 set out "plot_kernel_pressure_${nu}.png"
 set xla "Kernel function (pressure at $nu cm^{-1}) [K / hPa]"
-plot "kernel.tab" u ((strcol(8) eq "PRESSURE" && \$2==$nu) ? \$13 : 1/0):10:6 w l lc pal z t ""
+plot "< awk -v nu=$nu 'NF==0 || (\$8==\"PRESSURE\" && \$2==nu)' kernel.tab" u (1.0*\$13):(\$10):(1.0*\$6) w l lc pal z t ""
 
 set out "plot_kernel_temperature_${nu}.png"
 set xla "Kernel function (temperature at $nu cm^{-1}) [K / K]"
-plot "kernel.tab" u ((strcol(8) eq "TEMPERATURE" && \$2==$nu) ? \$13 : 1/0):10:6 w l lc pal z t ""
+plot "< awk -v nu=$nu 'NF==0 || (\$8==\"TEMPERATURE\" && \$2==nu)' kernel.tab" u (1.0*\$13):(\$10):(1.0*\$6) w l lc pal z t ""
 
 set out "plot_kernel_CO2_${nu}.png"
 set xla "Kernel function (CO_2 at $nu cm^{-1}) [K / ppmv]"
-plot "kernel.tab" u ((strcol(8) eq "CO2" && \$2==$nu) ? 1e-6*\$13 : 1/0):10:6 w l lc pal z t ""
+plot "< awk -v nu=$nu 'NF==0 || (\$8==\"CO2\" && \$2==nu)' kernel.tab" u (1e-6*\$13):(\$10):(1.0*\$6) w l lc pal z t ""
 
 set out "plot_kernel_extinction_${nu}.png"
 set xla "Kernel function (extinction at $nu cm^{-1}) [K / km^{-1}]"
-plot "kernel.tab" u ((strcol(8) eq "EXTINCT_WINDOW_0" && \$2==$nu) ? \$13 : 1/0):10:6 w l lc pal z t ""
+plot "< awk -v nu=$nu 'NF==0 || (\$8==\"EXTINCT_WINDOW_0\" && \$2==nu)' kernel.tab" u (1.0*\$13):(\$10):(1.0*\$6) w l lc pal z t ""
 EOF
 done
 

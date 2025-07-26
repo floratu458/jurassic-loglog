@@ -88,35 +88,35 @@ set pal def
 
 set out "plot_kernel_pressure_${nu}.png"
 set xla "Kernel function (pressure at $nu cm^{-1}) [nW / (cm^2 sr cm^{-1}) / hPa]"
-plot "kernel.tab" u ((strcol(8) eq "PRESSURE" && \$2==$nu) ? 1e5*\$13 : 1/0):10:4 w lp pt 1 lc pal z t ""
+plot "< awk -v nu=$nu '\$8==\"PRESSURE\" && \$2==nu' kernel.tab" u (1e5*\$13):10:4 w lp pt 1 lc pal z t ""
 
 set out "plot_kernel_temperature_${nu}.png"
 set xla "Kernel function (temperature at $nu cm^{-1}) [nW / (cm^2 sr cm^{-1}) / K]"
-plot "kernel.tab" u ((strcol(8) eq "TEMPERATURE" && \$2==$nu) ? 1e5*\$13 : 1/0):10:4 w lp pt 1 lc pal z t ""
+plot "< awk -v nu=$nu '\$8==\"TEMPERATURE\" && \$2==nu' kernel.tab" u (1e5*\$13):10:4 w lp pt 1 lc pal z t ""
 
 set out "plot_kernel_CO2_${nu}.png"
 set xla "Kernel function (CO_2 at $nu cm^{-1}) [nW / (cm^2 sr cm^{-1}) / ppmv]"
-plot "kernel.tab" u ((strcol(8) eq "CO2" && \$2==$nu) ? 1e-6*1e5*\$13 : 1/0):10:4 w lp pt 1 lc pal z t ""
+plot "< awk -v nu=$nu '\$8==\"CO2\" && \$2==nu' kernel.tab" u (1e-6*1e5*\$13):10:4 w lp pt 1 lc pal z t ""
 
 set out "plot_kernel_H2O_${nu}.png"
 set xla "Kernel function (H_2O at $nu cm^{-1}) [nW / (cm^2 sr cm^{-1}) / ppmv]"
-plot "kernel.tab" u ((strcol(8) eq "H2O" && \$2==$nu) ? 1e-6*1e5*\$13 : 1/0):10:4 w lp pt 1 lc pal z t ""
+plot "< awk -v nu=$nu '\$8==\"H2O\" && \$2==nu' kernel.tab" u (1e-6*1e5*\$13):10:4 w lp pt 1 lc pal z t ""
 
 set out "plot_kernel_O3_${nu}.png"
 set xla "Kernel function (O_3 at $nu cm^{-1}) [nW / (cm^2 sr cm^{-1}) / ppmv]"
-plot "kernel.tab" u ((strcol(8) eq "O3" && \$2==$nu) ? 1e-6*1e5*\$13 : 1/0):10:4 w lp pt 1 lc pal z t ""
+plot "< awk -v nu=$nu '\$8==\"O3\" && \$2==nu' kernel.tab" u (1e-6*1e5*\$13):10:4 w lp pt 1 lc pal z t ""
 
 set out "plot_kernel_F11_${nu}.png"
 set xla "Kernel function (CFC-11 at $nu cm^{-1}) [nW / (cm^2 sr cm^{-1}) / pptv]"
-plot "kernel.tab" u ((strcol(8) eq "F11" && \$2==$nu) ? 1e-12*1e5*\$13 : 1/0):10:4 w lp pt 1 lc pal z t ""
+plot "< awk -v nu=$nu '\$8==\"F11\" && \$2==nu' kernel.tab" u (1e-12*1e5*\$13):10:4 w lp pt 1 lc pal z t ""
 
 set out "plot_kernel_CCl4_${nu}.png"
 set xla "Kernel function (CCl_4 at $nu cm^{-1}) [nW / (cm^2 sr cm^{-1}) / pptv]"
-plot "kernel.tab" u ((strcol(8) eq "CCl4" && \$2==$nu) ? 1e-12*1e5*\$13 : 1/0):10:4 w lp pt 1 lc pal z t ""
+plot "< awk -v nu=$nu '\$8==\"CCl4\" && \$2==nu' kernel.tab" u (1e-12*1e5*\$13):10:4 w lp pt 1 lc pal z t ""
 
 set out "plot_kernel_extinction_${nu}.png"
 set xla "Kernel function (extinction at $nu cm^{-1}) [10^{6} nW / (cm^2 sr cm^{-1}) / km^{-1}]"
-plot "kernel.tab" u ((strcol(8) eq "EXTINCT_WINDOW_0" && \$2==$nu) ? 1e-6*1e5*\$13 : 1/0):10:4 w lp pt 1 lc pal z t ""
+plot "< awk -v nu=$nu '\$8==\"EXTINCT_WINDOW_0\" && \$2==nu' kernel.tab" u (1e-6*1e5*\$13):10:4 w lp pt 1 lc pal z t ""
 EOF
 done
 

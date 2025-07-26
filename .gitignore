@@ -2,7 +2,7 @@ bin/
 docs/docs/
 docs/site/
 libs/build/
-projects/
+projects/*
 !projects/limb/
 !projects/nadir/
 src/*.o
