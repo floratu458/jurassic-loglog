@@ -3726,8 +3726,8 @@ void intpol_tbl_cga(
     /* Loop over emitters.... */
     for (int ig = 0; ig < ctl->ng; ig++) {
 
-      /* Check size of table (pressure)... */
-      if (tbl->np[id][ig] < 30)
+      /* Check size of table (pressure) and Curtis-Godon pressure... */
+      if (tbl->np[id][ig] < 30 || los->cgp[ip][ig] == 0)
 	eps = 0;
 
       /* Check transmittance... */
@@ -4419,10 +4419,11 @@ void raytrace(
       los->cgt[ip][ig] = los->cgt[ip - 1][ig] + los->u[ip][ig] * los->t[ip];
     }
   for (int ip = 0; ip < los->np; ip++)
-    for (int ig = 0; ig < ctl->ng; ig++) {
-      los->cgp[ip][ig] /= los->cgu[ip][ig];
-      los->cgt[ip][ig] /= los->cgu[ip][ig];
-    }
+    for (int ig = 0; ig < ctl->ng; ig++)
+      if (los->cgu[ip][ig] != 0) {
+	los->cgp[ip][ig] /= los->cgu[ip][ig];
+	los->cgt[ip][ig] /= los->cgu[ip][ig];
+      }
 }
 
 /*****************************************************************************/
