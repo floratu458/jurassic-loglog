@@ -3726,8 +3726,8 @@ void intpol_tbl_cga(
     /* Loop over emitters.... */
     for (int ig = 0; ig < ctl->ng; ig++) {
 
-      /* Check size of table (pressure) and Curtis-Godon pressure... */
-      if (tbl->np[id][ig] < 30 || los->cgp[ip][ig] == 0)
+      /* Check size of table (pressure) and column density... */
+      if (tbl->np[id][ig] < 30 || los->cgu[ip][ig] <= 0)
 	eps = 0;
 
       /* Check transmittance... */
@@ -3815,8 +3815,8 @@ void intpol_tbl_ega(
     /* Loop over emitters.... */
     for (int ig = 0; ig < ctl->ng; ig++) {
 
-      /* Check size of table (pressure)... */
-      if (tbl->np[id][ig] < 30)
+      /* Check size of table (pressure) and column density... */
+      if (tbl->np[id][ig] < 30 || los->cgu[ip][ig] <= 0)
 	eps = 0;
 
       /* Check transmittance... */
