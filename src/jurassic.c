@@ -3990,13 +3990,10 @@ void jsec2time(
 /*****************************************************************************/
 
 void kernel(
-  ctl_t *ctl,
+  const ctl_t *ctl,
   atm_t *atm,
   obs_t *obs,
   gsl_matrix *k) {
-
-  atm_t *atm1;
-  obs_t *obs1;
 
   int *iqa;
 
@@ -4021,14 +4018,16 @@ void kernel(
   gsl_matrix_set_zero(k);
 
   /* Loop over state vector elements... */
-#pragma omp parallel for default(none) shared(ctl,atm,obs,k,x0,yy0,n,m,iqa) private(atm1, obs1)
+#pragma omp parallel for default(none) shared(ctl,atm,obs,k,x0,yy0,n,m,iqa)
   for (size_t j = 0; j < n; j++) {
 
     /* Allocate... */
-    gsl_vector *x1 = gsl_vector_alloc(n);
-    gsl_vector *yy1 = gsl_vector_alloc(m);
+    atm_t *atm1;
+    obs_t *obs1;
     ALLOC(atm1, atm_t, 1);
     ALLOC(obs1, obs_t, 1);
+    gsl_vector *x1 = gsl_vector_alloc(n);
+    gsl_vector *yy1 = gsl_vector_alloc(m);
 
     /* Set perturbation size... */
     double h;
@@ -5114,7 +5113,7 @@ double scan_ctl(
   int argc,
   char *argv[],
   const char *varname,
-  int arridx,
+  const int arridx,
   const char *defvalue,
   char *value) {
 

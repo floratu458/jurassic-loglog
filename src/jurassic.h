@@ -1002,7 +1002,7 @@ void jsec2time(
 
 /*! Compute Jacobians. */
 void kernel(
-  ctl_t * ctl,
+  const ctl_t * ctl,
   atm_t * atm,
   obs_t * obs,
   gsl_matrix * k);
@@ -1099,7 +1099,7 @@ double scan_ctl(
   int argc,
   char *argv[],
   const char *varname,
-  int arridx,
+  const int arridx,
   const char *defvalue,
   char *value);
 
