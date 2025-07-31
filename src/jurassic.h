@@ -100,6 +100,7 @@
 #ifndef JURASSIC_H
 #define JURASSIC_H
 
+#include <errno.h>
 #include <gsl/gsl_math.h>
 #include <gsl/gsl_blas.h>
 #include <gsl/gsl_linalg.h>
@@ -436,11 +437,6 @@
 /*! Maximum number of RFM spectral grid points. */
 #ifndef RFMNPTS
 #define RFMNPTS 10000000
-#endif
-
-/*! Maximum length of RFM data lines. */
-#ifndef RFMLINE
-#define RFMLINE 100000
 #endif
 
 /* ------------------------------------------------------------

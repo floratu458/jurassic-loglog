@@ -4850,7 +4850,9 @@ void read_rfm_spec(
 
   FILE *in;
 
-  char line[RFMLINE], *tok;
+  char *line = NULL, *tok;
+
+  size_t line_buf_size = 0;
 
   double dnu, nu0, nu1;
 
@@ -4863,23 +4865,28 @@ void read_rfm_spec(
   if (!(in = fopen(filename, "r")))
     ERRMSG("Cannot open file!");
 
-  /* Read header...... */
+  /* Read header... */
   for (int i = 0; i < 4; i++)
-    if (fgets(line, RFMLINE, in) == NULL)
+    if (getline(&line, &line_buf_size, in) == -1)
       ERRMSG("Error while reading file header!");
-  sscanf(line, "%d %lg %lg %lg", npts, &nu0, &dnu, &nu1);
+  if (sscanf(line, "%d %lg %lg %lg", npts, &nu0, &dnu, &nu1) != 4)
+    ERRMSG("Invalid spectrum header format!");
+
+  /* Check number of spectral grid points... */
   if (*npts > RFMNPTS)
     ERRMSG("Too many spectral grid points!");
 
   /* Read radiance data... */
-  while (fgets(line, RFMLINE, in) && ipts < *npts) {
-    if ((tok = strtok(line, " \t\n")) != NULL)
+  while (getline(&line, &line_buf_size, in) != -1 && ipts < *npts) {
+    tok = strtok(line, " \t\n");
+    while (tok != NULL && ipts < *npts) {
       if (sscanf(tok, "%lg", &rad[ipts]) == 1)
 	ipts++;
-    while ((tok = strtok(NULL, " \t\n")) != NULL)
-      if (sscanf(tok, "%lg", &rad[ipts]) == 1)
-	ipts++;
+      tok = strtok(NULL, " \t\n");
+    }
   }
+
+  /* Check number of spectral grid points... */
   if (ipts != *npts)
     ERRMSG("Error while reading RFM data!");
 
@@ -4889,6 +4896,9 @@ void read_rfm_spec(
 
   /* Close file... */
   fclose(in);
+
+  /* Free.. */
+  free(line);
 }
 
 /*****************************************************************************/

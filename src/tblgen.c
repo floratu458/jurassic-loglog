@@ -34,9 +34,6 @@
 /* Maximum number of grid points for spectra: */
 #define MAXNPTS 10000000
 
-/* Maximum line length: */
-#define MAXLINE 100000
-
 /* ------------------------------------------------------------
    Main...
    ------------------------------------------------------------ */
@@ -47,12 +44,14 @@ int main(
 
   FILE *in;
 
-  static char line[MAXLINE];
+  static char *line = NULL;
 
   static double dnu, abs[MAXNPTS], epsold, f, filt[MAXNF],
     nu, nu0, nu1, nuf[MAXNF], press, temp, u;
 
   static int i, idx, nf, npts;
+
+  size_t line_buf_size = 0;
 
   /* Read command line arguments... */
   if (argc != 5)
@@ -66,7 +65,7 @@ int main(
   /* Read filter function... */
   if (!(in = fopen(argv[4], "r")))
     ERRMSG("Cannot open filter file!");
-  while (fgets(line, MAXLINE, in))
+  while (getline(&line, &line_buf_size, in) != -1)
     if (sscanf(line, "%lg %lg", &nuf[nf], &filt[nf]) == 2)
       if (++nf >= MAXNF)
 	ERRMSG("Too many points in filter function");
@@ -75,29 +74,22 @@ int main(
   /* Read spectrum... */
   if (!(in = fopen(argv[3], "r")))
     ERRMSG("Cannot open spectrum!");
-  if (!fgets(line, MAXLINE, in))
-    ERRMSG("Error while reading spectrum!");
-  if (!fgets(line, MAXLINE, in))
-    ERRMSG("Error while reading spectrum!");
-  if (!fgets(line, MAXLINE, in))
-    ERRMSG("Error while reading spectrum!");
-  if (!fgets(line, MAXLINE, in))
-    ERRMSG("Error while reading spectrum!");
+  for (i = 0; i < 4; ++i)
+    if (getline(&line, &line_buf_size, in) == -1)
+      ERRMSG("Error while reading spectrum!");
   sscanf(line, "%d %lg %lg %lg", &npts, &nu0, &dnu, &nu1);
   if (npts > MAXNPTS)
     ERRMSG("Too many points in optical depth spectrum!");
   i = 0;
-  while (fgets(line, MAXLINE, in)) {
-    char *tok;
-    if ((tok = strtok(line, " \t\n")) != NULL) {
+  while (getline(&line, &line_buf_size, in) != -1) {
+    char *tok = strtok(line, " \t\n");
+    while (tok != NULL) {
+      if (i >= MAXNPTS)
+	ERRMSG("Too many data points in spectrum file!");
       sscanf(tok, "%lg", &abs[i]);
       abs[i] /= u;
-      i++;
-    }
-    while ((tok = strtok(NULL, " \t\n")) != NULL) {
-      sscanf(tok, "%lg", &abs[i]);
-      abs[i] /= u;
-      i++;
+      ++i;
+      tok = strtok(NULL, " \t\n");
     }
   }
   fclose(in);
