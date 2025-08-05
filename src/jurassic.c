@@ -773,13 +773,17 @@ void climatology(
     2e-10, 2e-10, 2e-10, 2e-10, 2e-10, 2e-10
   };
 
-  static int ig_co2 = -999;
+  static int ig_co2 = -999, ig_n2 = -999, ig_o2 = -999;
 
   const double *q[NG] = { NULL };
 
-  /* Find emitter index of CO2... */
+  /* Find emitter indices... */
   if (ig_co2 == -999)
     ig_co2 = find_emitter(ctl, "CO2");
+  if (ig_n2 == -999)
+    ig_n2 = find_emitter(ctl, "N2");
+  if (ig_o2 == -999)
+    ig_o2 = find_emitter(ctl, "O2");
 
   /* Identify variable... */
   for (int ig = 0; ig < ctl->ng; ig++) {
@@ -864,6 +868,14 @@ void climatology(
     if (ig_co2 >= 0)
       atm->q[ig_co2][ip] =
 	371.789948e-6 + 2.026214e-6 * (atm->time[ip] - 63158400.) / 31557600.;
+
+    /* Set N2... */
+    if (ig_n2 >= 0)
+      atm->q[ig_n2][ip] = 0.79;
+
+    /* Set O2... */
+    if (ig_o2 >= 0)
+      atm->q[ig_o2][ip] = 0.21;
 
     /* Set extinction to zero... */
     for (int iw = 0; iw < ctl->nw; iw++)
