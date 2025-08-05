@@ -295,6 +295,21 @@
 #define NA 6.02214199e23
 #endif
 
+/*! Nitrogen concentration. */
+#ifndef N2
+#define N2 0.78084
+#endif
+
+/*! Oxygen concentration. */
+#ifndef O2
+#define O2 0.20946
+#endif
+
+/*! Standard pressure [hPa]. */
+#ifndef P0
+#define P0 1013.25
+#endif
+
 /*! Mean radius of Earth [km]. */
 #ifndef RE
 #define RE 6367.421
@@ -303,11 +318,6 @@
 /*! Ideal gas constant [J/(mol K)]. */
 #ifndef RI
 #define RI 8.3144598
-#endif
-
-/*! Standard pressure [hPa]. */
-#ifndef P0
-#define P0 1013.25
 #endif
 
 /*! Standard temperature [K]. */

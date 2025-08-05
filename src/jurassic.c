@@ -871,11 +871,11 @@ void climatology(
 
     /* Set N2... */
     if (ig_n2 >= 0)
-      atm->q[ig_n2][ip] = 0.79;
+      atm->q[ig_n2][ip] = N2;
 
     /* Set O2... */
     if (ig_o2 >= 0)
-      atm->q[ig_o2][ip] = 0.21;
+      atm->q[ig_o2][ip] = O2;
 
     /* Set extinction to zero... */
     for (int iw = 0; iw < ctl->nw; iw++)
@@ -2859,7 +2859,7 @@ double ctmn2(
     2560., 2565., 2570., 2575., 2580., 2585., 2590., 2595., 2600., 2605.
   };
 
-  const double q_n2 = 0.79, t0 = 273.0, tr = 296.0;
+  const double t0 = 273.0, tr = 296.0;
 
   /* Check wavenumber range... */
   if (nu < nua[0] || nu > nua[97])
@@ -2873,7 +2873,7 @@ double ctmn2(
 
   /* Compute absorption coefficient... */
   return 0.1 * POW2(p / P0 * t0 / t) * exp(beta * (1 / tr - 1 / t))
-    * q_n2 * b * (q_n2 + (1 - q_n2) * (1.294 - 0.4545 * t / tr));
+    * N2 * b * (N2 + (1 - N2) * (1.294 - 0.4545 * t / tr));
 }
 
 /*****************************************************************************/
@@ -2922,7 +2922,7 @@ double ctmo2(
     1800., 1805.
   };
 
-  const double q_o2 = 0.21, t0 = 273, tr = 296;
+  const double t0 = 273, tr = 296;
 
   /* Check wavenumber range... */
   if (nu < nua[0] || nu > nua[89])
@@ -2935,8 +2935,7 @@ double ctmo2(
     LIN(nua[idx], betaa[idx], nua[idx + 1], betaa[idx + 1], nu);
 
   /* Compute absorption coefficient... */
-  return 0.1 * POW2(p / P0 * t0 / t) * exp(beta * (1 / tr - 1 / t)) * q_o2 *
-    b;
+  return 0.1 * POW2(p / P0 * t0 / t) * exp(beta * (1 / tr - 1 / t)) * O2 * b;
 }
 
 /*****************************************************************************/
