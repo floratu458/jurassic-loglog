@@ -3040,7 +3040,8 @@ double ctmn2(
 
   /* Interpolate B and beta... */
   const int idx = locate_reg(nua, 98, nu);
-  const double b = LIN(nua[idx], ba[idx], nua[idx + 1], ba[idx + 1], nu);
+  const double b =
+    1e6 * LIN(nua[idx], ba[idx], nua[idx + 1], ba[idx + 1], nu);
   const double beta =
     LIN(nua[idx], betaa[idx], nua[idx + 1], betaa[idx + 1], nu);
 
