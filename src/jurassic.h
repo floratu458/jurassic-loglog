@@ -1124,9 +1124,8 @@ void read_shape(
   int *n);
 
 /*! Read look-up table data. */
-void read_tbl(
-  const ctl_t * ctl,
-  tbl_t * tbl);
+tbl_t *read_tbl(
+  const ctl_t * ctl);
 
 /*! Search control parameter file for variable entry. */
 double scan_ctl(

@@ -5101,15 +5101,18 @@ void read_shape(
 
 /*****************************************************************************/
 
-void read_tbl(
-  const ctl_t *ctl,
-  tbl_t *tbl) {
+tbl_t *read_tbl(
+  const ctl_t *ctl) {
 
   FILE *in;
 
   char filename[2 * LEN], line[LEN];
 
   double eps, press, temp, u;
+
+  /* Allocate... */
+  tbl_t *tbl;
+  ALLOC(tbl, tbl_t, 1);
 
   /* Loop over trace gases and channels... */
   for (int id = 0; id < ctl->nd; id++)
@@ -5265,6 +5268,9 @@ void read_tbl(
 
   /* Initialize source function... */
   init_srcfunc(ctl, tbl);
+
+  /* Return pointer... */
+  return tbl;
 }
 
 /*****************************************************************************/

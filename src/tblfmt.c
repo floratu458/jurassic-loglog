@@ -30,8 +30,6 @@ int main(
 
   ctl_t ctl;
 
-  tbl_t *tbl;
-
   /* Check arguments... */
   if (argc < 6)
     ERRMSG("Give parameters: <ctl> <tblbase_in> <tblfmt_in>"
@@ -40,13 +38,10 @@ int main(
   /* Read control parameters... */
   read_ctl(argc, argv, &ctl);
 
-  /* Allocate... */
-  ALLOC(tbl, tbl_t, 1);
-
   /* Read tables... */
   sprintf(ctl.tblbase, "%s", argv[2]);
   ctl.tblfmt = atoi(argv[3]);
-  read_tbl(&ctl, tbl);
+  tbl_t *tbl = read_tbl(&ctl);
 
   /* Write tables... */
   sprintf(ctl.tblbase, "%s", argv[4]);

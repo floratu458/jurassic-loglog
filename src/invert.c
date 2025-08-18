@@ -101,9 +101,7 @@ int main(
   obs.obsz[0] = 705;
 
   /* Initialize look-up tables... */
-  tbl_t *tbl;
-  ALLOC(tbl, tbl_t, 1);
-  read_tbl(&ctl, tbl);
+  tbl_t *tbl = read_tbl(&ctl);
 
   /* ------------------------------------------------------------
      Read profiles...
@@ -354,6 +352,7 @@ int main(
 
   /* Free... */
   gsl_matrix_free(k);
+  free(tbl);
 
   return EXIT_SUCCESS;
 }

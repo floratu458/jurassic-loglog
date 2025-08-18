@@ -222,9 +222,7 @@ int main(
   read_ret(argc, argv, &ctl, &ret);
 
   /* Initialize look-up tables... */
-  tbl_t *tbl;
-  ALLOC(tbl, tbl_t, 1);
-  read_tbl(&ctl, tbl);
+  tbl_t *tbl = read_tbl(&ctl);
 
   /* Open directory list... */
   if (!(dirlist = fopen(argv[2], "r")))
@@ -254,6 +252,9 @@ int main(
 
   /* Measure CPU-time... */
   TIMER("total", 3);
+
+  /* Free... */
+  free(tbl);
 
   return EXIT_SUCCESS;
 }

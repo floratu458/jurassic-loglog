@@ -57,9 +57,7 @@ int main(
   read_ctl(argc, argv, &ctl);
 
   /* Initialize look-up tables... */
-  tbl_t *tbl;
-  ALLOC(tbl, tbl_t, 1);
-  read_tbl(&ctl, tbl);
+  tbl_t *tbl = read_tbl(&ctl);
 
   /* Get dirlist... */
   scan_ctl(argc, argv, "DIRLIST", -1, "-", dirlist);
@@ -93,6 +91,9 @@ int main(
     /* Close dirlist... */
     fclose(in);
   }
+
+  /* Free... */
+  free(tbl);
 
   return EXIT_SUCCESS;
 }

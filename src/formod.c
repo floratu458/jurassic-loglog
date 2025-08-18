@@ -59,9 +59,7 @@ int main(
   read_ctl(argc, argv, &ctl);
 
   /* Initialize look-up tables... */
-  tbl_t *tbl;
-  ALLOC(tbl, tbl_t, 1);
-  read_tbl(&ctl, tbl);
+  tbl_t *tbl = read_tbl(&ctl);
 
 #ifdef UNIFIED
 
@@ -119,6 +117,9 @@ int main(
   }
 
 #endif
+
+  /* Free... */
+  free(tbl);
 
   return EXIT_SUCCESS;
 }
