@@ -11,7 +11,7 @@
   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
   GNU General Public License for more details.
   
-  You should have received a copy of the GNU eneral Public License
+  You should have received a copy of the GNU General Public License
   along with JURASSIC. If not, see <http://www.gnu.org/licenses/>.
   
   Copyright (C) 2003-2025 Forschungszentrum Juelich GmbH
