@@ -916,6 +916,7 @@ int find_emitter(
 /*! Determine ray paths and compute radiative transfer. */
 void formod(
   const ctl_t * ctl,
+  const tbl_t * tbl,
   atm_t * atm,
   obs_t * obs);
 
@@ -934,6 +935,7 @@ void formod_fov(
 /*! Compute radiative transfer for a pencil beam. */
 void formod_pencil(
   const ctl_t * ctl,
+  const tbl_t * tbl,
   const atm_t * atm,
   obs_t * obs,
   const int ir);
@@ -1034,6 +1036,7 @@ void jsec2time(
 /*! Compute Jacobians. */
 void kernel(
   const ctl_t * ctl,
+  const tbl_t * tbl,
   atm_t * atm,
   obs_t * obs,
   gsl_matrix * k);

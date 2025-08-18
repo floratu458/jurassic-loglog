@@ -30,7 +30,8 @@
 
 /*! Perform kernel calculations in a single directory. */
 void call_kernel(
-  ctl_t * ctl,
+  const ctl_t * ctl,
+  const tbl_t * tbl,
   const char *wrkdir,
   const char *obsfile,
   const char *atmfile,
@@ -55,6 +56,11 @@ int main(
   /* Read control parameters... */
   read_ctl(argc, argv, &ctl);
 
+  /* Initialize look-up tables... */
+  tbl_t *tbl;
+  ALLOC(tbl, tbl_t, 1);
+  read_tbl(&ctl, tbl);
+
   /* Get dirlist... */
   scan_ctl(argc, argv, "DIRLIST", -1, "-", dirlist);
 
@@ -63,7 +69,7 @@ int main(
 
   /* Single kernel calculation... */
   if (dirlist[0] == '-')
-    call_kernel(&ctl, NULL, argv[2], argv[3], argv[4]);
+    call_kernel(&ctl, tbl, NULL, argv[2], argv[3], argv[4]);
 
   /* Work on directory list... */
   else {
@@ -81,7 +87,7 @@ int main(
       LOG(1, "\nWorking directory: %s", wrkdir);
 
       /* Call forward model... */
-      call_kernel(&ctl, wrkdir, argv[2], argv[3], argv[4]);
+      call_kernel(&ctl, tbl, wrkdir, argv[2], argv[3], argv[4]);
     }
 
     /* Close dirlist... */
@@ -94,7 +100,8 @@ int main(
 /*****************************************************************************/
 
 void call_kernel(
-  ctl_t *ctl,
+  const ctl_t *ctl,
+  const tbl_t *tbl,
   const char *wrkdir,
   const char *obsfile,
   const char *atmfile,
@@ -123,7 +130,7 @@ void call_kernel(
   gsl_matrix *k = gsl_matrix_alloc(m, n);
 
   /* Compute kernel matrix... */
-  kernel(ctl, &atm, &obs, k);
+  kernel(ctl, tbl, &atm, &obs, k);
 
   /* Write matrix to file... */
   write_matrix(wrkdir, kernelfile, ctl, k, &atm, &obs, "y", "x", "r");

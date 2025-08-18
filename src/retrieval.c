@@ -156,6 +156,7 @@ void matrix_product(
 void optimal_estimation(
   ret_t * ret,
   ctl_t * ctl,
+  tbl_t * tbl,
   obs_t * obs_meas,
   obs_t * obs_i,
   atm_t * atm_apr,
@@ -220,6 +221,11 @@ int main(
   read_ctl(argc, argv, &ctl);
   read_ret(argc, argv, &ctl, &ret);
 
+  /* Initialize look-up tables... */
+  tbl_t *tbl;
+  ALLOC(tbl, tbl_t, 1);
+  read_tbl(&ctl, tbl);
+
   /* Open directory list... */
   if (!(dirlist = fopen(argv[2], "r")))
     ERRMSG("Cannot open directory list!");
@@ -237,7 +243,7 @@ int main(
     read_obs(ret.dir, "obs_meas.tab", &ctl, &obs_meas);
 
     /* Run retrieval... */
-    optimal_estimation(&ret, &ctl, &obs_meas, &obs_i, &atm_apr, &atm_i);
+    optimal_estimation(&ret, &ctl, tbl, &obs_meas, &obs_i, &atm_apr, &atm_i);
 
     /* Measure CPU-time... */
     TIMER("total", 2);
@@ -448,6 +454,7 @@ void matrix_product(
 void optimal_estimation(
   ret_t *ret,
   ctl_t *ctl,
+  tbl_t *tbl,
   obs_t *obs_meas,
   obs_t *obs_i,
   atm_t *atm_apr,
@@ -504,7 +511,7 @@ void optimal_estimation(
   /* Set initial state... */
   copy_atm(ctl, atm_i, atm_apr, 0);
   copy_obs(ctl, obs_i, obs_meas, 0);
-  formod(ctl, atm_i, obs_i);
+  formod(ctl, tbl, atm_i, obs_i);
 
   /* Set state vectors and observation vectors... */
   atm2x(ctl, atm_apr, x_a, NULL, NULL);
@@ -549,7 +556,7 @@ void optimal_estimation(
   fprintf(out, "%d %g %d %d\n", it, chisq, (int) m, (int) n);
 
   /* Compute initial kernel... */
-  kernel(ctl, atm_i, obs_i, k_i);
+  kernel(ctl, tbl, atm_i, obs_i, k_i);
 
   /* ------------------------------------------------------------
      Levenberg-Marquardt minimization...
@@ -563,7 +570,7 @@ void optimal_estimation(
 
     /* Compute kernel matrix K_i... */
     if (it > 1 && it % ret->kernel_recomp == 0)
-      kernel(ctl, atm_i, obs_i, k_i);
+      kernel(ctl, tbl, atm_i, obs_i, k_i);
 
     /* Compute K_i^T * S_eps^{-1} * K_i ... */
     if (it == 1 || it % ret->kernel_recomp == 0)
@@ -614,7 +621,7 @@ void optimal_estimation(
 	atm_i->sfeps[isf] = MIN(MAX(atm_i->sfeps[isf], 0), 1);
 
       /* Forward calculation... */
-      formod(ctl, atm_i, obs_i);
+      formod(ctl, tbl, atm_i, obs_i);
       obs2y(ctl, obs_i, y_i, NULL, NULL);
 
       /* Determine dx = x_i - x_a and dy = y - F(x_i) ... */

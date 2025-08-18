@@ -3211,6 +3211,7 @@ int find_emitter(
 
 void formod(
   const ctl_t *ctl,
+  const tbl_t *tbl,
   atm_t *atm,
   obs_t *obs) {
 
@@ -3231,7 +3232,7 @@ void formod(
   /* CGA or EGA forward model... */
   if (ctl->formod == 0 || ctl->formod == 1)
     for (int ir = 0; ir < obs->nr; ir++)
-      formod_pencil(ctl, atm, obs, ir);
+      formod_pencil(ctl, tbl, atm, obs, ir);
 
   /* Call RFM... */
   else if (ctl->formod == 2)
@@ -3361,26 +3362,15 @@ void formod_fov(
 
 void formod_pencil(
   const ctl_t *ctl,
+  const tbl_t *tbl,
   const atm_t *atm,
   obs_t *obs,
   const int ir) {
-
-  static tbl_t *tbl;
-
-  static int init = 0;
 
   los_t *los;
 
   double beta_ctm[ND], rad[ND], tau[ND], tau_refl[ND],
     tau_path[ND][NG], tau_gas[ND], x0[3], x1[3];
-
-  /* Initialize look-up tables... */
-  if (!init) {
-    init = 1;
-    ALLOC(tbl, tbl_t, 1);
-    read_tbl(ctl, tbl);
-    init_srcfunc(ctl, tbl);
-  }
 
   /* Allocate... */
   ALLOC(los, los_t, 1);
@@ -4151,6 +4141,7 @@ void jsec2time(
 
 void kernel(
   const ctl_t *ctl,
+  const tbl_t *tbl,
   atm_t *atm,
   obs_t *obs,
   gsl_matrix *k) {
@@ -4168,7 +4159,7 @@ void kernel(
 	N);
 
   /* Compute radiance for undisturbed atmospheric data... */
-  formod(ctl, atm, obs);
+  formod(ctl, tbl, atm, obs);
 
   /* Compose vectors... */
   atm2x(ctl, atm, x0, iqa, NULL);
@@ -4178,7 +4169,7 @@ void kernel(
   gsl_matrix_set_zero(k);
 
   /* Loop over state vector elements... */
-#pragma omp parallel for default(none) shared(ctl,atm,obs,k,x0,yy0,n,m,iqa)
+#pragma omp parallel for default(none) shared(ctl,tbl,atm,obs,k,x0,yy0,n,m,iqa)
   for (size_t j = 0; j < n; j++) {
 
     /* Allocate... */
@@ -4222,7 +4213,7 @@ void kernel(
     x2atm(ctl, x1, atm1);
 
     /* Compute radiance for disturbed atmospheric data... */
-    formod(ctl, atm1, obs1);
+    formod(ctl, tbl, atm1, obs1);
 
     /* Compose measurement vector for disturbed radiance data... */
     obs2y(ctl, obs1, yy1, NULL, NULL);
@@ -5271,6 +5262,9 @@ void read_tbl(
 	    tbl->nu[id][ig][ip][0] - 1, tbl->eps[id][ig][ip][0][0],
 	    tbl->eps[id][ig][ip][0][tbl->nu[id][ig][ip][0] - 1]);
     }
+
+  /* Initialize source function... */
+  init_srcfunc(ctl, tbl);
 }
 
 /*****************************************************************************/

@@ -100,6 +100,11 @@ int main(
   obs.nr = 1;
   obs.obsz[0] = 705;
 
+  /* Initialize look-up tables... */
+  tbl_t *tbl;
+  ALLOC(tbl, tbl_t, 1);
+  read_tbl(&ctl, tbl);
+
   /* ------------------------------------------------------------
      Read profiles...
      ------------------------------------------------------------ */
@@ -150,7 +155,7 @@ int main(
 	  && atm.np > 0) {
 
 	/* Call forward model... */
-	formod(&ctl, &atm, &obs);
+	formod(&ctl, tbl, &atm, &obs);
 	obs_sim = obs.rad[0][0] - obs.rad[1][0];
 
 	/* Get time index... */
@@ -339,7 +344,7 @@ int main(
   gsl_matrix *k = gsl_matrix_alloc(mk, nk);
 
   /* Compute kernel matrix... */
-  kernel(&ctl, &atm2, &obs, k);
+  kernel(&ctl, tbl, &atm2, &obs, k);
 
   /* Write atmospheric data... */
   write_atm(NULL, argv[4], &ctl, &atm);

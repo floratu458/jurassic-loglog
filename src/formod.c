@@ -34,6 +34,7 @@
 /*! Perform forward model calculations in a single directory. */
 void call_formod(
   ctl_t * ctl,
+  const tbl_t * tbl,
   const char *wrkdir,
   const char *obsfile,
   const char *atmfile,
@@ -56,6 +57,11 @@ int main(
 
   /* Read control parameters... */
   read_ctl(argc, argv, &ctl);
+
+  /* Initialize look-up tables... */
+  tbl_t *tbl;
+  ALLOC(tbl, tbl_t, 1);
+  read_tbl(&ctl, tbl);
 
 #ifdef UNIFIED
 
@@ -87,7 +93,7 @@ int main(
 
   /* Single forward calculation... */
   if (dirlist[0] == '-')
-    call_formod(&ctl, NULL, argv[2], argv[3], argv[4], task);
+    call_formod(&ctl, tbl, NULL, argv[2], argv[3], argv[4], task);
 
   /* Work on directory list... */
   else {
@@ -105,7 +111,7 @@ int main(
       LOG(1, "\nWorking directory: %s", wrkdir);
 
       /* Call forward model... */
-      call_formod(&ctl, wrkdir, argv[2], argv[3], argv[4], task);
+      call_formod(&ctl, tbl, wrkdir, argv[2], argv[3], argv[4], task);
     }
 
     /* Close dirlist... */
@@ -121,6 +127,7 @@ int main(
 
 void call_formod(
   ctl_t *ctl,
+  const tbl_t *tbl,
   const char *wrkdir,
   const char *obsfile,
   const char *atmfile,
@@ -173,7 +180,7 @@ void call_formod(
       if (atm2.np > 0) {
 
 	/* Call forward model... */
-	formod(ctl, &atm2, &obs2);
+	formod(ctl, tbl, &atm2, &obs2);
 
 	/* Save radiance data... */
 	for (int id = 0; id < ctl->nd; id++) {
@@ -191,7 +198,7 @@ void call_formod(
   else {
 
     /* Call forward model... */
-    formod(ctl, &atm, &obs);
+    formod(ctl, tbl, &atm, &obs);
 
     /* Save radiance data... */
     write_obs(wrkdir, radfile, ctl, &obs);
@@ -225,7 +232,7 @@ void call_formod(
 	      atm2.q[ig2][ip] = 0;
 
 	/* Call forward model... */
-	formod(ctl, &atm2, &obs);
+	formod(ctl, tbl, &atm2, &obs);
 
 	/* Save radiance data... */
 	sprintf(filename, "%s.%s", radfile, ctl->emitter[ig]);
@@ -241,7 +248,7 @@ void call_formod(
 	  atm2.q[ig][ip] = 0;
 
       /* Call forward model... */
-      formod(ctl, &atm2, &obs);
+      formod(ctl, tbl, &atm2, &obs);
 
       /* Save radiance data... */
       sprintf(filename, "%s.EXTINCT", radfile);
@@ -278,7 +285,7 @@ void call_formod(
 
 	/* Measure runtime... */
 	double t0 = omp_get_wtime();
-	formod(ctl, &atm2, &obs);
+	formod(ctl, tbl, &atm2, &obs);
 	double dt = omp_get_wtime() - t0;
 
 	/* Get runtime statistics... */
@@ -308,7 +315,7 @@ void call_formod(
       /* Reference run... */
       ctl->rayds = 0.1;
       ctl->raydz = 0.01;
-      formod(ctl, &atm, &obs);
+      formod(ctl, tbl, &atm, &obs);
       copy_obs(ctl, &obs2, &obs, 0);
 
       /* Loop over step size... */
@@ -322,7 +329,7 @@ void call_formod(
 
 	  /* Measure runtime... */
 	  double t0 = omp_get_wtime();
-	  formod(ctl, &atm, &obs);
+	  formod(ctl, tbl, &atm, &obs);
 	  double dt = omp_get_wtime() - t0;
 
 	  /* Get differences... */
