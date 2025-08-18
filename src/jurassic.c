@@ -3298,10 +3298,6 @@ void formod_fov(
   const ctl_t *ctl,
   obs_t *obs) {
 
-  static double dz[NSHAPE], w[NSHAPE];
-
-  static int init = 0, n;
-
   obs_t *obs2;
 
   double rad[ND][NR], tau[ND][NR], z[NR];
@@ -3309,12 +3305,6 @@ void formod_fov(
   /* Do not take into account FOV... */
   if (ctl->fov[0] == '-')
     return;
-
-  /* Initialize FOV data... */
-  if (!init) {
-    init = 1;
-    read_shape(ctl->fov, dz, w, &n);
-  }
 
   /* Allocate... */
   ALLOC(obs2, obs_t, 1);
@@ -3346,16 +3336,16 @@ void formod_fov(
       obs->rad[id][ir] = 0;
       obs->tau[id][ir] = 0;
     }
-    for (int i = 0; i < n; i++) {
-      const double zfov = obs->vpz[ir] + dz[i];
+    for (int i = 0; i < ctl->fov_n; i++) {
+      const double zfov = obs->vpz[ir] + ctl->fov_dz[i];
       const int idx = locate_irr(z, nz, zfov);
       for (int id = 0; id < ctl->nd; id++) {
-	obs->rad[id][ir] += w[i]
+	obs->rad[id][ir] += ctl->fov_w[i]
 	  * LIN(z[idx], rad[id][idx], z[idx + 1], rad[id][idx + 1], zfov);
-	obs->tau[id][ir] += w[i]
+	obs->tau[id][ir] += ctl->fov_w[i]
 	  * LIN(z[idx], tau[id][idx], z[idx + 1], tau[id][idx + 1], zfov);
       }
-      wsum += w[i];
+      wsum += ctl->fov_w[i];
     }
     for (int id = 0; id < ctl->nd; id++) {
       obs->rad[id][ir] /= wsum;
@@ -4779,6 +4769,8 @@ void read_ctl(
 
   /* Field of view... */
   scan_ctl(argc, argv, "FOV", -1, "-", ctl->fov);
+  if (ctl->fov[0] != '-')
+    read_shape(ctl->fov, ctl->fov_dz, ctl->fov_w, &ctl->fov_n);
 
   /* Retrieval interface... */
   ctl->retp_zmin = scan_ctl(argc, argv, "RETP_ZMIN", -1, "-999", NULL);

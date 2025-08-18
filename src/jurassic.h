@@ -627,6 +627,15 @@ typedef struct {
   /*! Field-of-view data file. */
   char fov[LEN];
 
+  /*! Field-of-view vertical distance [km]. */
+  double fov_dz[NSHAPE];
+
+  /*! Field-of-view weighting factor. */
+  double fov_w[NSHAPE];
+
+  /*! Field-of-view number of data points. */
+  int fov_n;
+
   /*! Minimum altitude for pressure retrieval [km]. */
   double retp_zmin;
 
