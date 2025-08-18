@@ -552,6 +552,18 @@ typedef struct {
   /*! Name of each emitter. */
   char emitter[NG][LEN];
 
+  /*! Emitter index of CO2. */
+  int ig_co2;
+
+  /*! Emitter index of H2O. */
+  int ig_h2o;
+
+  /*! Emitter index of N2. */
+  int ig_n2;
+
+  /*! Emitter index of O2. */
+  int ig_o2;
+
   /*! Number of radiance channels. */
   int nd;
 

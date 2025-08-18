@@ -934,17 +934,7 @@ void climatology(
     2e-10, 2e-10, 2e-10, 2e-10, 2e-10, 2e-10
   };
 
-  static int ig_co2 = -999, ig_n2 = -999, ig_o2 = -999;
-
   const double *q[NG] = { NULL };
-
-  /* Find emitter indices... */
-  if (ig_co2 == -999)
-    ig_co2 = find_emitter(ctl, "CO2");
-  if (ig_n2 == -999)
-    ig_n2 = find_emitter(ctl, "N2");
-  if (ig_o2 == -999)
-    ig_o2 = find_emitter(ctl, "O2");
 
   /* Identify variable... */
   for (int ig = 0; ig < ctl->ng; ig++) {
@@ -1038,17 +1028,17 @@ void climatology(
 	atm->q[ig][ip] = 0;
 
     /* Set CO2... */
-    if (ig_co2 >= 0)
-      atm->q[ig_co2][ip] =
+    if (ctl->ig_co2 >= 0)
+      atm->q[ctl->ig_co2][ip] =
 	371.789948e-6 + 2.026214e-6 * (atm->time[ip] - 63158400.) / 31557600.;
 
     /* Set N2... */
-    if (ig_n2 >= 0)
-      atm->q[ig_n2][ip] = N2;
+    if (ctl->ig_n2 >= 0)
+      atm->q[ctl->ig_n2][ip] = N2;
 
     /* Set O2... */
-    if (ig_o2 >= 0)
-      atm->q[ig_o2][ip] = O2;
+    if (ctl->ig_o2 >= 0)
+      atm->q[ctl->ig_o2][ip] = O2;
 
     /* Set extinction to zero... */
     for (int iw = 0; iw < ctl->nw; iw++)
@@ -3274,32 +3264,22 @@ void formod_continua(
   const int ip,
   double *beta) {
 
-  static int ig_co2 = -999, ig_h2o = -999;
-
   /* Extinction... */
   for (int id = 0; id < ctl->nd; id++)
     beta[id] = los->k[ip][id];
 
   /* CO2 continuum... */
-  if (ctl->ctm_co2) {
-    if (ig_co2 == -999)
-      ig_co2 = find_emitter(ctl, "CO2");
-    if (ig_co2 >= 0)
-      for (int id = 0; id < ctl->nd; id++)
-	beta[id] += ctmco2(ctl->nu[id], los->p[ip], los->t[ip],
-			   los->u[ip][ig_co2]) / los->ds[ip];
-  }
+  if (ctl->ctm_co2 && ctl->ig_co2 >= 0)
+    for (int id = 0; id < ctl->nd; id++)
+      beta[id] += ctmco2(ctl->nu[id], los->p[ip], los->t[ip],
+			 los->u[ip][ctl->ig_co2]) / los->ds[ip];
 
   /* H2O continuum... */
-  if (ctl->ctm_h2o) {
-    if (ig_h2o == -999)
-      ig_h2o = find_emitter(ctl, "H2O");
-    if (ig_h2o >= 0)
-      for (int id = 0; id < ctl->nd; id++)
-	beta[id] += ctmh2o(ctl->nu[id], los->p[ip], los->t[ip],
-			   los->q[ip][ig_h2o], los->u[ip][ig_h2o])
-	  / los->ds[ip];
-  }
+  if (ctl->ctm_h2o && ctl->ig_h2o >= 0)
+    for (int id = 0; id < ctl->nd; id++)
+      beta[id] += ctmh2o(ctl->nu[id], los->p[ip], los->t[ip],
+			 los->q[ip][ctl->ig_h2o], los->u[ip][ctl->ig_h2o])
+	/ los->ds[ip];
 
   /* N2 continuum... */
   if (ctl->ctm_n2)
@@ -3721,8 +3701,6 @@ void hydrostatic(
 
   const int ipts = 20;
 
-  static int ig_h2o = -999;
-
   double dzmin = 1e99, e = 0;
 
   int ipref = 0;
@@ -3730,10 +3708,6 @@ void hydrostatic(
   /* Check reference height... */
   if (ctl->hydz < 0)
     return;
-
-  /* Determine emitter index of H2O... */
-  if (ig_h2o == -999)
-    ig_h2o = find_emitter(ctl, "H2O");
 
   /* Find air parcel next to reference height... */
   for (int ip = 0; ip < atm->np; ip++)
@@ -3746,9 +3720,9 @@ void hydrostatic(
   for (int ip = ipref + 1; ip < atm->np; ip++) {
     double mean = 0;
     for (int i = 0; i < ipts; i++) {
-      if (ig_h2o >= 0)
-	e = LIN(0.0, atm->q[ig_h2o][ip - 1],
-		ipts - 1.0, atm->q[ig_h2o][ip], (double) i);
+      if (ctl->ig_h2o >= 0)
+	e = LIN(0.0, atm->q[ctl->ig_h2o][ip - 1],
+		ipts - 1.0, atm->q[ctl->ig_h2o][ip], (double) i);
       mean += (e * mmh2o + (1 - e) * mmair)
 	* G0 / RI
 	/ LIN(0.0, atm->t[ip - 1], ipts - 1.0, atm->t[ip], (double) i) / ipts;
@@ -3763,9 +3737,9 @@ void hydrostatic(
   for (int ip = ipref - 1; ip >= 0; ip--) {
     double mean = 0;
     for (int i = 0; i < ipts; i++) {
-      if (ig_h2o >= 0)
-	e = LIN(0.0, atm->q[ig_h2o][ip + 1],
-		ipts - 1.0, atm->q[ig_h2o][ip], (double) i);
+      if (ctl->ig_h2o >= 0)
+	e = LIN(0.0, atm->q[ctl->ig_h2o][ip + 1],
+		ipts - 1.0, atm->q[ctl->ig_h2o][ip], (double) i);
       mean += (e * mmh2o + (1 - e) * mmair)
 	* G0 / RI
 	/ LIN(0.0, atm->t[ip + 1], ipts - 1.0, atm->t[ip], (double) i) / ipts;
@@ -4744,6 +4718,10 @@ void read_ctl(
     ERRMSG("Set 0 <= NG <= MAX!");
   for (int ig = 0; ig < ctl->ng; ig++)
     scan_ctl(argc, argv, "EMITTER", ig, "", ctl->emitter[ig]);
+  ctl->ig_co2 = find_emitter(ctl, "CO2");
+  ctl->ig_h2o = find_emitter(ctl, "H2O");
+  ctl->ig_n2 = find_emitter(ctl, "N2");
+  ctl->ig_o2 = find_emitter(ctl, "O2");
 
   /* Radiance channels... */
   ctl->nd = (int) scan_ctl(argc, argv, "ND", -1, "0", NULL);
