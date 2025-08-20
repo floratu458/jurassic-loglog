@@ -4042,7 +4042,7 @@ void intpol_tbl_ega(
 
 /*****************************************************************************/
 
-double intpol_tbl_eps(
+inline double intpol_tbl_eps(
   const tbl_t *tbl,
   const int ig,
   const int id,
@@ -4074,7 +4074,7 @@ double intpol_tbl_eps(
 
 /*****************************************************************************/
 
-double intpol_tbl_u(
+inline double intpol_tbl_u(
   const tbl_t *tbl,
   const int ig,
   const int id,
@@ -4287,7 +4287,7 @@ int locate_reg(
 
 /*****************************************************************************/
 
-int locate_tbl(
+inline int locate_tbl(
   const float *xx,
   const int n,
   const double x) {
