@@ -16,6 +16,7 @@ remote sensing measurements.
 [![codecov](https://codecov.io/gh/slcs-jsc/jurassic/branch/master/graph/badge.svg?token=TYGWEJMOLI)](https://codecov.io/gh/slcs-jsc/jurassic)
 [![tests](https://img.shields.io/github/actions/workflow/status/slcs-jsc/jurassic/tests.yml?branch=master&label=tests)](https://github.com/slcs-jsc/jurassic/actions)
 [![docs](https://img.shields.io/github/actions/workflow/status/slcs-jsc/jurassic/docs.yml?branch=master&label=docs)](https://slcs-jsc.github.io/jurassic)
+[![HiRSE Code Promo Badge](https://img.shields.io/badge/Promo-8db427?style=plastic&label=HiRSE&labelColor=005aa0&link=https%3A%2F%2Fgo.fzj.de%2FCodePromo)](https://go.fzj.de/CodePromo)
 [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/slcs-jsc/jurassic)
 [![license](https://img.shields.io/github/license/slcs-jsc/jurassic.svg)](https://github.com/slcs-jsc/jurassic/blob/master/COPYING)
 [![doi](https://zenodo.org/badge/DOI/10.5281/zenodo.4572889.svg)](https://doi.org/10.5281/zenodo.4572889)
