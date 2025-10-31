@@ -4359,6 +4359,11 @@ void raytrace(
 
   /* Get altitude range of atmospheric data... */
   gsl_stats_minmax(&zmin, &zmax, atm->z, 1, (size_t) atm->np);
+
+  /* Always treat z = 0 as the physical ground... */
+  zmin = MAX(0.0, zmin);
+
+  /* Optionally, use control parameters to define the surface... */
   if (ctl->nsf > 0) {
     zmin = MAX(atm->sfz, zmin);
     if (atm->sfp > 0) {
