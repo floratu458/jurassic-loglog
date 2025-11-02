@@ -3927,7 +3927,7 @@ void intpol_tbl_cga(
 	  eps00 = LOGX(tbl->p[id][ig][ipr], eps00,
 		       tbl->p[id][ig][ipr + 1], eps11, los->cgp[ip][ig]);
 
-	  /* Check emssivity range... */
+	  /* Check emissivity range... */
 	  eps00 = MAX(MIN(eps00, 1), 0);
 
 	  /* Determine segment emissivity... */
@@ -4023,7 +4023,7 @@ void intpol_tbl_ega(
 	  eps00 = LIN(tbl->p[id][ig][ipr], eps00,
 		      tbl->p[id][ig][ipr + 1], eps11, los->p[ip]);
 
-	  /* Check emssivity range... */
+	  /* Check emissivity range... */
 	  eps00 = MAX(MIN(eps00, 1), 0);
 
 	  /* Determine segment emissivity... */
@@ -4057,17 +4057,17 @@ inline double intpol_tbl_eps(
   const double u_min = u_arr[0];
   const double u_max = u_arr[nu - 1];
 
-  /* Lower extrapolation */
+  /* Lower boundary extrapolation... */
   if (u < u_min)
-    return LIN(0.0, 0.0, u_min, eps_arr[0], u);
+    return eps_arr[0] * u / u_min;
 
-  /* Upper extrapolation */
+  /* Upper boundary extrapolation... */
   if (u > u_max) {
     const double a = log(1.0 - eps_arr[nu - 1]) / u_max;
     return 1.0 - exp(a * u);
   }
 
-  /* Interpolation */
+  /* Interpolation... */
   const int idx = locate_tbl(u_arr, nu, u);
   return LIN(u_arr[idx], eps_arr[idx], u_arr[idx + 1], eps_arr[idx + 1], u);
 }
@@ -4089,17 +4089,17 @@ inline double intpol_tbl_u(
   const double eps_min = eps_arr[0];
   const double eps_max = eps_arr[nu - 1];
 
-  /* Lower boundary extrapolation */
+  /* Lower boundary extrapolation... */
   if (eps < eps_min)
-    return LIN(0.0, 0.0, eps_min, u_arr[0], eps);
+    return u_arr[0] * eps / eps_min;
 
-  /* Upper boundary extrapolation (log-inverse) */
+  /* Upper boundary extrapolation... */
   if (eps > eps_max) {
     const double a = log(1.0 - eps_max) / u_arr[nu - 1];
     return log(1.0 - eps) / a;
   }
 
-  /* Interpolation */
+  /* Interpolation... */
   const int idx = locate_tbl(eps_arr, nu, eps);
   return LIN(eps_arr[idx], u_arr[idx], eps_arr[idx + 1], u_arr[idx + 1], eps);
 }
