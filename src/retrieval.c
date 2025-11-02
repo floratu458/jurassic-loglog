@@ -97,12 +97,6 @@ typedef struct {
   /*! Cloud extinction error [km^-1]. */
   double err_clk[NCL];
 
-  /*! Surface height error [km]. */
-  double err_sfz;
-
-  /*! Surface pressure error [hPa]. */
-  double err_sfp;
-
   /*! Surface temperature error [K]. */
   double err_sft;
 
@@ -306,8 +300,6 @@ void analyze_avk(
   for (int icl = 0; icl < ctl->ncl; icl++)
     analyze_avk_quantity(avk, IDXCLK(icl), ipa, n0, n1,
 			 &atm_cont.clk[icl], &atm_res.clk[icl]);
-  analyze_avk_quantity(avk, IDXSFZ, ipa, n0, n1, &atm_cont.sfz, &atm_res.sfz);
-  analyze_avk_quantity(avk, IDXSFP, ipa, n0, n1, &atm_cont.sfp, &atm_res.sfp);
   analyze_avk_quantity(avk, IDXSFT, ipa, n0, n1, &atm_cont.sft, &atm_res.sft);
   for (int isf = 0; isf < ctl->nsf; isf++)
     analyze_avk_quantity(avk, IDXSFEPS(isf), ipa, n0, n1,
@@ -615,8 +607,6 @@ void optimal_estimation(
       atm_i->cldz = MAX(atm_i->cldz, 0.1);
       for (int icl = 0; icl < ctl->ncl; icl++)
 	atm_i->clk[icl] = MAX(atm_i->clk[icl], 0);
-      atm_i->sfz = MAX(atm_i->sfz, 0);
-      atm_i->sfp = MAX(atm_i->sfp, 0);
       atm_i->sft = MIN(MAX(atm_i->sft, 100), 400);
       for (int isf = 0; isf < ctl->nsf; isf++)
 	atm_i->sfeps[isf] = MIN(MAX(atm_i->sfeps[isf], 0), 1);
@@ -804,8 +794,6 @@ void read_ret(
   for (int icl = 0; icl < ctl->ncl; icl++)
     ret->err_clk[icl] = scan_ctl(argc, argv, "ERR_CLK", icl, "0", NULL);
 
-  ret->err_sfz = scan_ctl(argc, argv, "ERR_SFZ", -1, "0", NULL);
-  ret->err_sfp = scan_ctl(argc, argv, "ERR_SFP", -1, "0", NULL);
   ret->err_sft = scan_ctl(argc, argv, "ERR_SFT", -1, "0", NULL);
   for (int isf = 0; isf < ctl->nsf; isf++)
     ret->err_sfeps[isf] = scan_ctl(argc, argv, "ERR_SFEPS", isf, "0", NULL);
@@ -849,10 +837,6 @@ void set_cov_apr(
     for (int icl = 0; icl < ctl->ncl; icl++)
       if (iqa[i] == IDXCLK(icl))
 	gsl_vector_set(x_a, i, ret->err_clk[icl]);
-    if (iqa[i] == IDXSFZ)
-      gsl_vector_set(x_a, i, ret->err_sfz);
-    if (iqa[i] == IDXSFP)
-      gsl_vector_set(x_a, i, ret->err_sfp);
     if (iqa[i] == IDXSFT)
       gsl_vector_set(x_a, i, ret->err_sft);
     for (int isf = 0; isf < ctl->nsf; isf++)
