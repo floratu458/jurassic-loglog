@@ -867,7 +867,6 @@
     exit(EXIT_FAILURE);							\
   }
 
-
 /*!
  * \brief Print the value of a variable with contextual information.
  *
@@ -905,7 +904,13 @@
    Structs...
    ------------------------------------------------------------ */
 
-/*! Atmospheric data. */
+/**
+ * @brief Atmospheric profile data.
+ *
+ * Holds one vertical atmospheric column including geolocation,
+ * thermodynamic, cloud, and surface properties for radiative-transfer
+ * calculations.
+ */
 typedef struct {
 
   /*! Number of data points. */
@@ -944,12 +949,6 @@ typedef struct {
   /*! Cloud layer extinction [km^-1]. */
   double clk[NCL];
 
-  /*! Surface height [km]. */
-  double sfz;
-
-  /*! Surface pressure [hPa]. */
-  double sfp;
-
   /*! Surface temperature [K]. */
   double sft;
 
@@ -958,7 +957,13 @@ typedef struct {
 
 } atm_t;
 
-/*! Forward model control parameters. */
+/**
+ * @brief Control parameters.
+ * 
+ * This structure contains all control parameters used by the JURASSIC
+ * model. The struct is used to collect and to easily pass the control
+ * parameters on to the various functions.
+ */
 typedef struct {
 
   /*! Number of emitters. */
@@ -1084,12 +1089,6 @@ typedef struct {
   /*! Retrieve cloud layer extinction (0=no, 1=yes). */
   int ret_clk;
 
-  /*! Retrieve surface layer height (0=no, 1=yes). */
-  int ret_sfz;
-
-  /*! Retrieve surface layer pressure (0=no, 1=yes). */
-  int ret_sfp;
-
   /*! Retrieve surface layer temperature (0=no, 1=yes). */
   int ret_sft;
 
@@ -1116,7 +1115,13 @@ typedef struct {
 
 } ctl_t;
 
-/*! Line-of-sight data. */
+/**
+ * @brief Line-of-sight data.
+ *
+ * Contains all quantities along a ray path used for radiative-transfer
+ * calculations, including geometry, thermodynamic state, gas and
+ * extinction profiles, and precomputed optical parameters.
+ */
 typedef struct {
 
   /*! Number of LOS points. */
@@ -1172,7 +1177,13 @@ typedef struct {
 
 } los_t;
 
-/*! Observation geometry and radiance data. */
+/**
+ * @brief Observation geometry and radiance data.
+ *
+ * Stores viewing geometry and radiative quantities for multiple ray paths.
+ * Each path represents a line of sight between observer and tangent point,
+ * including associated time and location data.
+ */
 typedef struct {
 
   /*! Number of ray paths. */
@@ -1216,7 +1227,12 @@ typedef struct {
 
 } obs_t;
 
-/*! Emissivity look-up tables. */
+/**
+ * @brief Emissivity look-up tables.
+ *
+ * Stores precomputed emissivity and source-function data for
+ * different gases, spectral channels, and emitter column densities.
+ */
 typedef struct {
 
   /*! Number of pressure levels. */
@@ -1252,7 +1268,32 @@ typedef struct {
    Functions...
    ------------------------------------------------------------ */
 
-/*! Compose state vector or parameter vector. */
+/**
+ * @brief Convert atmospheric data to state vector elements.
+ *
+ * Extracts selected quantities from an atmospheric profile (@ref atm_t)
+ * according to retrieval settings in @ref ctl_t, and appends them to
+ * the state vector @p x. For each included quantity, the function also
+ * stores its quantity index (@p iqa) and profile index (@p ipa).
+ *
+ * The function respects retrieval altitude limits defined in @p ctl
+ * (e.g., `retp_zmin/zmax`, `rett_zmin/zmax`, etc.) and includes only
+ * variables flagged for retrieval (e.g., `ret_clz`, `ret_sft`, etc.).
+ *
+ * @param[in]  ctl  Control settings defining retrieval configuration and limits.
+ * @param[in]  atm  Atmospheric profile data to extract from.
+ * @param[out] x    GSL vector to store state-vector elements.
+ * @param[out] iqa  Quantity index array corresponding to elements in @p x.
+ * @param[out] ipa  Profile index array corresponding to elements in @p x.
+ *
+ * @return Number of elements written to the state vector.
+ *
+ * @note Internally calls @ref atm2x_help() to append individual values.
+ *
+ * @see atm_t, ctl_t, atm2x_help
+ *
+ * @author Lars Hoffmann
+ */
 size_t atm2x(
   const ctl_t * ctl,
   const atm_t * atm,

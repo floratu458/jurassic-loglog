@@ -49,8 +49,6 @@ int main(
   const double cldz = scan_ctl(argc, argv, "CLDZ", -1, "0", NULL);
   for (int icl = 0; icl < ctl.ncl; icl++)
     clk[icl] = scan_ctl(argc, argv, "CLK", icl, "0", NULL);
-  const double sfz = scan_ctl(argc, argv, "SFZ", -1, "0", NULL);
-  const double sfp = scan_ctl(argc, argv, "SFP", -1, "0", NULL);
   const double sft = scan_ctl(argc, argv, "SFT", -1, "0", NULL);
   for (int isf = 0; isf < ctl.nsf; isf++)
     sfeps[isf] = scan_ctl(argc, argv, "SFEPS", isf, "1", NULL);
@@ -74,8 +72,6 @@ int main(
     atm.clk[icl] = clk[icl];
 
   /* Set surface layer... */
-  atm.sfz = sfz;
-  atm.sfp = sfp;
   atm.sft = sft;
   for (int isf = 0; isf < ctl.nsf; isf++)
     atm.sfeps[isf] = sfeps[isf];
