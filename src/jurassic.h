@@ -1228,6 +1228,91 @@ typedef struct {
 } obs_t;
 
 /**
+ * @brief Retrieval control parameters.
+ *
+ * The `ret_t` structure holds all parameters controlling the iterative
+ * inversion process (retrieval), including convergence criteria,
+ * kernel matrix updates, and uncertainty specifications for each
+ * retrieved quantity (pressure, temperature, trace gas concentrations,
+ * extinction, cloud, and surface parameters).
+ */
+typedef struct {
+
+  /*! Working directory. */
+  char dir[LEN];
+
+  /*! Re-computation of kernel matrix (number of iterations). */
+  int kernel_recomp;
+
+  /*! Maximum number of iterations. */
+  int conv_itmax;
+
+  /*! Minimum normalized step size in state space. */
+  double conv_dmin;
+
+  /*! Carry out error analysis (0=no, 1=yes). */
+  int err_ana;
+
+  /*! Forward model error [%]. */
+  double err_formod[ND];
+
+  /*! Noise error [W/(m^2 sr cm^-1)]. */
+  double err_noise[ND];
+
+  /*! Pressure error [%]. */
+  double err_press;
+
+  /*! Vertical correlation length for pressure error [km]. */
+  double err_press_cz;
+
+  /*! Horizontal correlation length for pressure error [km]. */
+  double err_press_ch;
+
+  /*! Temperature error [K]. */
+  double err_temp;
+
+  /*! Vertical correlation length for temperature error [km]. */
+  double err_temp_cz;
+
+  /*! Horizontal correlation length for temperature error [km]. */
+  double err_temp_ch;
+
+  /*! Volume mixing ratio error [%]. */
+  double err_q[NG];
+
+  /*! Vertical correlation length for volume mixing ratio error [km]. */
+  double err_q_cz[NG];
+
+  /*! Horizontal correlation length for volume mixing ratio error [km]. */
+  double err_q_ch[NG];
+
+  /*! Extinction error [km^-1]. */
+  double err_k[NW];
+
+  /*! Vertical correlation length for extinction error [km]. */
+  double err_k_cz[NW];
+
+  /*! Horizontal correlation length for extinction error [km]. */
+  double err_k_ch[NW];
+
+  /*! Cloud height error [km]. */
+  double err_clz;
+
+  /*! Cloud depth error [km]. */
+  double err_cldz;
+
+  /*! Cloud extinction error [km^-1]. */
+  double err_clk[NCL];
+
+  /*! Surface temperature error [K]. */
+  double err_sft;
+
+  /*! Surface emissivity error. */
+  double err_sfeps[NSF];
+
+} ret_t;
+
+/**
  * @brief Emissivity look-up tables.
  *
  * Stores precomputed emissivity and source-function data for
@@ -1267,6 +1352,151 @@ typedef struct {
 /* ------------------------------------------------------------
    Functions...
    ------------------------------------------------------------ */
+
+/**
+ * @brief Analyze averaging kernel (AVK) matrix for retrieval diagnostics.
+ *
+ * Decomposes and evaluates the averaging kernel matrix \f$\mathbf{A}\f$
+ * to quantify the retrieval sensitivity and vertical resolution for each
+ * retrieved quantity (pressure, temperature, trace gases, extinction, etc.).
+ * The results are written to diagnostic atmospheric files for visualization.
+ *
+ * @param[in]  ret   Retrieval control and configuration structure (`ret_t`).
+ * @param[in]  ctl   Global control structure (`ctl_t`) defining retrieval setup and quantities.
+ * @param[in]  atm   Retrieved atmospheric state structure (`atm_t`).
+ * @param[in]  iqa   Array mapping state vector indices to physical quantities (e.g., IDXP, IDXT, IDXQ(...)).
+ * @param[in]  ipa   Array mapping state vector indices to atmospheric grid points.
+ * @param[in]  avk   Averaging kernel matrix \f$\mathbf{A}\f$ (`gsl_matrix`, n×n).
+ *
+ * @details
+ * The averaging kernel matrix \f$\mathbf{A}\f$ describes the sensitivity of the
+ * retrieved state \f$\hat{x}\f$ to the true state \f$x\f$:
+ * \f[
+ * \hat{x} - x_a = \mathbf{A} (x - x_a)
+ * \f]
+ * where \f$x_a\f$ is the a priori state.  
+ * This function separates and evaluates:
+ * - **Contribution profiles:** diagonal dominance or total response (sensitivity).
+ * - **Resolution profiles:** width or spread of the averaging kernels.
+ *
+ * Internally, this function:
+ * 1. Identifies submatrices of \f$\mathbf{A}\f$ corresponding to each
+ *    physical quantity (pressure, temperature, VMRs, extinction, clouds, surface).
+ * 2. Calls `analyze_avk_quantity()` for each retrieved parameter type to compute
+ *    quantitative measures of contribution and resolution.
+ * 3. Writes the results as atmospheric profiles:
+ *    - `atm_cont.tab` — contribution functions (sensitivity).
+ *    - `atm_res.tab` — resolution functions (vertical response width).
+ *
+ * @see analyze_avk_quantity, write_atm, set_cov_apr, set_cov_meas
+ *
+ * @note
+ * - Submatrices are identified by matching the quantity index `iqa[i]` to the
+ *   quantity constants (e.g., `IDXT`, `IDXQ(ig)`, etc.).
+ * - Cloud and surface quantities are treated as scalar elements.
+ * - Output files are written to the retrieval working directory (`ret->dir`).
+ *
+ * @example
+ * @code
+ * gsl_matrix *A = gsl_matrix_alloc(n, n);
+ * // ... compute averaging kernel ...
+ * analyze_avk(&ret, &ctl, &atm, iqa, ipa, A);
+ * // Creates atm_cont.tab and atm_res.tab for diagnostics
+ * @endcode
+ *
+ * @warning
+ * - The averaging kernel must be fully computed and dimensionally consistent
+ *   with the state vector before calling this function.
+ * - File writing will overwrite existing diagnostics in `ret->dir`.
+ *
+ * @references
+ * Rodgers, C. D. (2000). *Inverse Methods for Atmospheric Sounding:
+ * Theory and Practice.* World Scientific.
+ *
+ * @author
+ * Lars Hoffmann
+ */
+void analyze_avk(
+  ret_t * ret,
+  ctl_t * ctl,
+  atm_t * atm,
+  int *iqa,
+  int *ipa,
+  gsl_matrix * avk);
+
+/**
+ * @brief Analyze averaging kernel submatrix for a specific retrieved quantity.
+ *
+ * Computes the contribution (sensitivity) and resolution (information density)
+ * profiles for a given physical quantity from its corresponding submatrix
+ * of the full averaging kernel matrix \f$\mathbf{A}\f$.
+ *
+ * @param[in]  avk   Averaging kernel matrix \f$\mathbf{A}\f$ (`gsl_matrix`, n×n),
+ *                   describing the sensitivity of the retrieved state to the true state.
+ * @param[in]  iq    Quantity index identifier (e.g., `IDXP`, `IDXT`, `IDXQ(ig)`,
+ *                   `IDXK(iw)`, `IDXCLZ`, etc.).
+ * @param[in]  ipa   Array mapping state vector indices to atmospheric grid indices.
+ * @param[in]  n0    Array of starting indices for each quantity sub-block in the state vector.
+ * @param[in]  n1    Array of lengths (number of elements) for each quantity sub-block.
+ * @param[out] cont  Array of contribution values, representing the total
+ *                   sensitivity or response of the retrieval at each grid point.
+ * @param[out] res   Array of resolution measures, representing the vertical
+ *                   information density or averaging kernel width at each grid point.
+ *
+ * @details
+ * For a given quantity \f$q\f$, the function extracts its corresponding
+ * block \f$\mathbf{A}_q\f$ from the full averaging kernel matrix and computes:
+ *
+ * - **Contribution function**
+ *   \f[
+ *   \text{cont}_i = \sum_j A_{ij}^{(q)}
+ *   \f]
+ *   giving the total response of retrieved element \f$i\f$ to perturbations
+ *   in all true elements \f$j\f$ of the same quantity.
+ *
+ * - **Resolution (information density)**
+ *   \f[
+ *   \text{res}_i = \frac{1}{A_{ii}^{(q)}}
+ *   \f]
+ *   approximating the degree of vertical resolution or smoothing at level \f$i\f$.
+ *
+ * The results are stored in the provided arrays `cont[]` and `res[]`,
+ * indexed according to the atmospheric profile index via `ipa[]`.
+ *
+ * @see analyze_avk, write_atm, set_cov_apr
+ *
+ * @note
+ * - Only elements associated with the specified quantity index (`iq`) are processed.
+ * - The function assumes the averaging kernel matrix is square and symmetric.
+ * - The contribution and resolution arrays must be preallocated to at least
+ *   the number of atmospheric grid points (`atm->np`).
+ *
+ * @example
+ * @code
+ * analyze_avk_quantity(A, IDXT, ipa, n0, n1, atm_cont.t, atm_res.t);
+ * // Computes contribution and resolution profiles for temperature
+ * @endcode
+ *
+ * @warning
+ * - If the diagonal element `A_ii` is zero or near-zero, the corresponding
+ *   resolution value may be undefined or numerically unstable.
+ * - Input indices `n0[iq]` and `n1[iq]` must have been computed by `analyze_avk()`.
+ *
+ * @references
+ * Rodgers, C. D. (2000). *Inverse Methods for Atmospheric Sounding:
+ * Theory and Practice.* World Scientific.
+ *
+ * @author
+ * Lars Hoffmann
+ */
+void analyze_avk_quantity(
+  gsl_matrix * avk,
+  int iq,
+  int *ipa,
+  size_t *n0,
+  size_t *n1,
+  double *cont,
+  double *res);
 
 /**
  * @brief Convert atmospheric data to state vector elements.
@@ -1369,6 +1599,61 @@ void cart2geo(
 void climatology(
   const ctl_t * ctl,
   atm_t * atm_mean);
+
+/**
+ * @brief Compute the normalized quadratic cost function for optimal estimation.
+ *
+ * Evaluates the cost function
+ * \f[
+ * J = \frac{1}{m} \left[ (\mathbf{y} - \mathbf{y_a})^T
+ * \mathbf{S_\epsilon^{-1}} (\mathbf{y} - \mathbf{y_a})
+ * + (\mathbf{x} - \mathbf{x_a})^T \mathbf{S_a^{-1}} (\mathbf{x} - \mathbf{x_a}) \right]
+ * \f]
+ * where \f$\mathbf{dx} = \mathbf{x} - \mathbf{x_a}\f$ and
+ * \f$\mathbf{dy} = \mathbf{y} - \mathbf{y_a}\f$ represent the deviations
+ * from a priori state and measurement vectors, respectively.
+ *
+ * @param[in] dx           State deviation vector (`x - x_a`).
+ * @param[in] dy           Measurement deviation vector (`y - y_a`).
+ * @param[in] s_a_inv      Inverse of the a priori covariance matrix (\f$\mathbf{S_a^{-1}}\f$).
+ * @param[in] sig_eps_inv  Vector of inverse measurement uncertainties
+ *                         (\f$\mathbf{S_\epsilon^{-1/2}}\f$ diagonal elements).
+ *
+ * @return Normalized cost function value (dimensionless).
+ *
+ * @details
+ * - Implements the standard *Optimal Estimation Method* (Rodgers, 2000) cost function.
+ * - The first term (\f$\chi^2_m\f$) measures the weighted measurement residuals:
+ *   \f$\chi^2_m = \sum_i (dy_i / \sigma_{\epsilon,i})^2\f$.
+ * - The second term (\f$\chi^2_a\f$) measures the deviation from the a priori state:
+ *   \f$\chi^2_a = dx^T \mathbf{S_a^{-1}} dx\f$.
+ * - The result is normalized by the number of measurements \f$m\f$ for scale consistency.
+ *
+ * @see retrieval, s_a_inv, sig_eps_inv
+ *
+ * @note
+ * - Assumes diagonal measurement error covariance (independent measurements).
+ * - The covariance matrices must be positive-definite and properly dimensioned.
+ * - The function does **not** modify the input vectors.
+ *
+ * @example
+ * @code
+ * double J = cost_function(dx, dy, S_a_inv, sig_eps_inv);
+ * printf("Cost function: %.6f\n", J);
+ * @endcode
+ *
+ * @references
+ * Rodgers, C. D. (2000). *Inverse Methods for Atmospheric Sounding:
+ * Theory and Practice.* World Scientific Publishing.
+ *
+ * @author
+ * Lars Hoffmann
+ */
+double cost_function(
+  gsl_vector * dx,
+  gsl_vector * dy,
+  gsl_matrix * s_a_inv,
+  gsl_vector * sig_eps_inv);
 
 /**
  * @brief Compute carbon dioxide continuum (optical depth).
@@ -2236,6 +2521,118 @@ int locate_tbl(
   const int n,
   const double x);
 
+/*!
+ * @brief Invert a square matrix, optimized for diagonal or symmetric positive-definite matrices.
+ *
+ * Performs in-place inversion of the matrix \f$\mathbf{A}\f$ using either:
+ * - **Fast diagonal inversion**, if the matrix is strictly diagonal.
+ * - **Cholesky decomposition**, if the matrix is full and symmetric positive-definite.
+ *
+ * @param[in,out] a  Square matrix (`gsl_matrix`) to be inverted in place.
+ *
+ * @details
+ * The function first checks whether the input matrix is diagonal by testing
+ * all off-diagonal elements. If diagonal, each diagonal element \f$a_{ii}\f$
+ * is replaced by its reciprocal \f$1/a_{ii}\f$.
+ *
+ * For non-diagonal matrices, a Cholesky decomposition is performed:
+ * \f[
+ * \mathbf{A} = \mathbf{L}\mathbf{L}^T
+ * \f]
+ * followed by inversion using the Cholesky factors, yielding
+ * \f$\mathbf{A}^{-1}\f$.
+ *
+ * This approach assumes \f$\mathbf{A}\f$ is **symmetric and positive-definite**.
+ *
+ * @see gsl_linalg_cholesky_decomp, gsl_linalg_cholesky_invert
+ *
+ * @note
+ * - The inversion is performed **in place**; the input matrix is overwritten.
+ * - No explicit symmetry or definiteness checks are performed — invalid input
+ *   may result in numerical instability or GSL errors.
+ * - Diagonal detection assumes exact zeros for off-diagonal elements.
+ *
+ * @example
+ * @code
+ * gsl_matrix *A = gsl_matrix_alloc(3, 3);
+ * // Fill A with covariance matrix elements...
+ * matrix_invert(A);  // A now holds the inverse
+ * @endcode
+ *
+ * @warning
+ * For ill-conditioned matrices, consider using singular value decomposition (SVD)
+ * or regularization methods instead of direct inversion.
+ *
+ * @author
+ * Lars Hoffmann
+ */
+void matrix_invert(
+  gsl_matrix * a);
+
+/**
+ * @brief Compute structured matrix products of the form \f$A^T B A\f$ or \f$A B A^T\f$.
+ *
+ * Evaluates matrix products commonly used in covariance propagation and
+ * optimal estimation, depending on the specified transpose mode:
+ * - **transpose = 1** → computes \f$\mathbf{A}^T \mathbf{B} \mathbf{A}\f$
+ * - **transpose = 2** → computes \f$\mathbf{A} \mathbf{B} \mathbf{A}^T\f$
+ *
+ * The vector \f$\mathbf{b}\f$ represents the diagonal elements of
+ * \f$\mathbf{B}\f$, i.e. a diagonal weighting or covariance matrix.
+ *
+ * @param[in]  a          Input matrix \f$\mathbf{A}\f$ (size m×n).
+ * @param[in]  b          Vector representing the diagonal of \f$\mathbf{B}\f$ (length m or n).
+ * @param[in]  transpose  Operation selector:
+ *                        - 1 → compute \f$A^T B A\f$
+ *                        - 2 → compute \f$A B A^T\f$
+ * @param[out] c          Output matrix to store the resulting product.
+ *
+ * @details
+ * - The function internally forms the scaled matrix
+ *   \f$(B^{1/2} A)\f$ or \f$(A B^{1/2})\f$, then multiplies it using
+ *   BLAS `dgemm` routines for efficiency:
+ *   \f[
+ *   A^T B A = (B^{1/2}A)^T (B^{1/2}A), \quad
+ *   A B A^T = (A B^{1/2}) (A B^{1/2})^T
+ *   \f]
+ * - The input matrix \f$\mathbf{A}\f$ is not modified.
+ * - This operation is typically used in computing gain matrices,
+ *   propagated covariances, or sensitivity matrices in retrieval algorithms.
+ *
+ * @see gsl_blas_dgemm, matrix_invert
+ *
+ * @note
+ * - Assumes \f$\mathbf{B}\f$ is diagonal (provided as a vector of its diagonal elements).
+ * - The output matrix \f$\mathbf{C}\f$ must be pre-allocated to the correct size.
+ * - No symmetry enforcement or normalization is applied.
+ *
+ * @example
+ * @code
+ * gsl_matrix *A = gsl_matrix_alloc(m, n);
+ * gsl_vector *B = gsl_vector_alloc(m);
+ * gsl_matrix *C = gsl_matrix_alloc(n, n);
+ *
+ * // Compute C = Aᵀ B A
+ * matrix_product(A, B, 1, C);
+ * @endcode
+ *
+ * @warning
+ * - If `transpose` is not 1 or 2, the function performs no operation.
+ * - Numerical stability depends on the conditioning of A and the scaling of B.
+ *
+ * @references
+ * Rodgers, C. D. (2000). *Inverse Methods for Atmospheric Sounding:
+ * Theory and Practice.* World Scientific.
+ *
+ * @author
+ * Lars Hoffmann
+ */
+void matrix_product(
+  gsl_matrix * a,
+  gsl_vector * b,
+  int transpose,
+  gsl_matrix * c);
+
 /**
  * @brief Convert observation radiances into a measurement vector.
  *
@@ -2528,6 +2925,89 @@ double read_obs_rfm(
   int n);
 
 /**
+ * @brief Read retrieval configuration and error parameters.
+ *
+ * Initializes the retrieval control structure (`ret_t`) by reading all
+ * iteration and uncertainty parameters from the command line or an input
+ * control file using the `scan_ctl()` interface.
+ *
+ * @param[in]  argc  Number of command-line arguments.
+ * @param[in]  argv  Command-line argument vector.
+ * @param[in]  ctl   Pointer to global control structure (`ctl_t`) defining
+ *                   the number of emitters, detectors, windows, clouds, etc.
+ * @param[out] ret   Pointer to retrieval configuration structure (`ret_t`)
+ *                   to be populated with iteration and error settings.
+ *
+ * @details
+ * The function performs the following initialization steps:
+ *
+ * 1. **Iteration control parameters**
+ *    - `KERNEL_RECOMP` — number of iterations between kernel recomputations.  
+ *    - `CONV_ITMAX` — maximum number of retrieval iterations.  
+ *    - `CONV_DMIN` — minimum normalized step size for convergence.
+ *
+ * 2. **Error analysis flag**
+ *    - `ERR_ANA` — enables or disables retrieval error analysis (0 = off, 1 = on).
+ *
+ * 3. **Instrument and forward model errors**
+ *    - `ERR_FORMOD[id]` — relative (%) forward model uncertainty per detector channel.  
+ *    - `ERR_NOISE[id]` — absolute instrument noise per detector channel  
+ *      [W/(m²·sr·cm⁻¹)] or [K] depending on `write_bbt`.
+ *
+ * 4. **Pressure and temperature retrieval uncertainties**
+ *    - `ERR_PRESS`, `ERR_PRESS_CZ`, `ERR_PRESS_CH` — pressure error [%] and correlation lengths [km].  
+ *    - `ERR_TEMP`, `ERR_TEMP_CZ`, `ERR_TEMP_CH` — temperature error [K] and correlation lengths [km].
+ *
+ * 5. **Volume mixing ratio (VMR) errors**
+ *    - `ERR_Q[ig]`, `ERR_Q_CZ[ig]`, `ERR_Q_CH[ig]` — per gas [%] and correlation lengths [km].
+ *
+ * 6. **Extinction errors**
+ *    - `ERR_K[iw]`, `ERR_K_CZ[iw]`, `ERR_K_CH[iw]` — per spectral window [km⁻¹] and correlation lengths [km].
+ *
+ * 7. **Cloud retrieval parameters**
+ *    - `ERR_CLZ` — cloud top height error [km].  
+ *    - `ERR_CLDZ` — cloud depth error [km].  
+ *    - `ERR_CLK[icl]` — cloud extinction error per frequency [km⁻¹].
+ *
+ * 8. **Surface retrieval parameters**
+ *    - `ERR_SFT` — surface temperature error [K].  
+ *    - `ERR_SFEPS[isf]` — surface emissivity errors (dimensionless).
+ *
+ * @see scan_ctl, set_cov_apr, set_cov_meas, ret_t, ctl_t
+ *
+ * @note
+ * - Each parameter can be specified either in the control file or on the
+ *   command line (the latter overrides file values).
+ * - Default values are used when a parameter is not explicitly defined.
+ * - Correlation lengths of `-999` indicate uncorrelated (diagonal) treatment.
+ *
+ * @example
+ * @code
+ * ctl_t ctl;
+ * ret_t ret;
+ * read_ctl(argc, argv, &ctl);
+ * read_ret(argc, argv, &ctl, &ret);
+ * // ret now contains all retrieval and error parameters
+ * @endcode
+ *
+ * @warning
+ * - Input validation is minimal; ensure consistency between `ctl` and `ret` dimensions.
+ * - Missing mandatory parameters trigger runtime errors.
+ *
+ * @references
+ * Rodgers, C. D. (2000). *Inverse Methods for Atmospheric Sounding:
+ * Theory and Practice.* World Scientific.
+ *
+ * @author
+ * Lars Hoffmann
+ */
+void read_ret(
+  int argc,
+  char *argv[],
+  ctl_t * ctl,
+  ret_t * ret);
+
+/**
  * @brief Read a Reference Forward Model (RFM) ASCII spectrum.
  *
  * Parses an RFM output file containing high-resolution spectral radiances
@@ -2738,6 +3218,155 @@ double scan_ctl(
   const int arridx,
   const char *defvalue,
   char *value);
+
+/**
+ * @brief Construct the a priori covariance matrix \f$\mathbf{S_a}\f$ for retrieval parameters.
+ *
+ * Builds the full a priori covariance matrix based on specified retrieval
+ * error assumptions and correlation lengths defined in the `ret_t` structure.
+ * Each diagonal element represents the variance of an individual state
+ * vector element, while off-diagonal terms encode spatial correlations
+ * between parameters of the same type.
+ *
+ * @param[in]  ret   Retrieval configuration and error parameters (`ret_t`).
+ * @param[in]  ctl   Control structure defining retrieval setup and state vector mapping (`ctl_t`).
+ * @param[in]  atm   Atmospheric profile structure containing geolocation and altitude information (`atm_t`).
+ * @param[in]  iqa   Index array linking state vector elements to physical quantities (e.g. pressure, temperature, gas, extinction, etc.).
+ * @param[in]  ipa   Index array linking state vector elements to atmospheric grid points.
+ * @param[out] s_a   Output a priori covariance matrix \f$\mathbf{S_a}\f$ (`gsl_matrix`), dimension n×n.
+ *
+ * @details
+ * - The function first converts atmospheric quantities to a state vector (`atm2x`)
+ *   and scales them according to their a priori uncertainties:
+ *   - Pressure and trace gas errors are relative (% of nominal value).
+ *   - Temperature, extinction, cloud, and surface errors are absolute.
+ * - The diagonal of \f$\mathbf{S_a}\f$ is filled with the variances
+ *   \f$\sigma_i^2\f$ of each element.
+ * - Off-diagonal elements are populated according to an exponential
+ *   correlation model:
+ *   \f[
+ *   \rho_{ij} = \exp\left(-\frac{d_{ij}}{L_h} - \frac{|z_i - z_j|}{L_v}\right)
+ *   \f]
+ *   where:
+ *   - \f$d_{ij}\f$ is the great-circle (horizontal) distance between
+ *     state vector locations,
+ *   - \f$L_h\f$ and \f$L_v\f$ are horizontal and vertical correlation lengths
+ *     for the parameter type.
+ *
+ * @see atm2x, geo2cart, DIST, ret_t, ctl_t
+ *
+ * @note
+ * - Parameters with identical type indices (`iqa[i] == iqa[j]`)
+ *   are assumed to share correlation properties.
+ * - Correlation lengths are taken from `ret_t`, differing by parameter type:
+ *   - Pressure: `err_press_cz`, `err_press_ch`
+ *   - Temperature: `err_temp_cz`, `err_temp_ch`
+ *   - Volume mixing ratio: `err_q_cz[]`, `err_q_ch[]`
+ *   - Extinction: `err_k_cz[]`, `err_k_ch[]`
+ * - Cloud and surface parameters are assumed uncorrelated (diagonal only).
+ *
+ * @example
+ * @code
+ * gsl_matrix *Sa = gsl_matrix_alloc(n, n);
+ * set_cov_apr(&ret, &ctl, &atm, iqa, ipa, Sa);
+ * // Sa now contains the full a priori covariance matrix
+ * @endcode
+ *
+ * @warning
+ * - A zero or negative variance triggers a runtime error.
+ * - The matrix is constructed in full (dense), which may be large for
+ *   high-resolution retrieval grids.
+ *
+ * @references
+ * Rodgers, C. D. (2000). *Inverse Methods for Atmospheric Sounding:
+ * Theory and Practice.* World Scientific.
+ *
+ * @author
+ * Lars Hoffmann
+ */
+void set_cov_apr(
+  ret_t * ret,
+  ctl_t * ctl,
+  atm_t * atm,
+  int *iqa,
+  int *ipa,
+  gsl_matrix * s_a);
+
+/*!
+ * @brief Construct measurement error standard deviations and their inverse.
+ *
+ * Builds the total measurement uncertainty vector used in the
+ * optimal estimation retrieval, accounting for both instrument noise
+ * and forward model (systematic) errors.
+ *
+ * @param[in]  ret          Retrieval configuration and error parameters (`ret_t`).
+ * @param[in]  ctl          Control structure defining spectral channels and setup (`ctl_t`).
+ * @param[in]  obs          Observation dataset (`obs_t`), containing measured radiances or brightness temperatures.
+ * @param[out] sig_noise    Vector of instrument noise standard deviations (`gsl_vector`), length m.
+ * @param[out] sig_formod   Vector of forward model error standard deviations (`gsl_vector`), length m.
+ * @param[out] sig_eps_inv  Vector of inverse total standard deviations, \f$\sigma_\epsilon^{-1}\f$, used for normalization.
+ *
+ * @details
+ * - The function computes the total measurement uncertainty for each
+ *   observation element \f$i\f$ as:
+ *   \f[
+ *   \sigma_{\epsilon,i}^2 = \sigma_{\text{noise},i}^2 + \sigma_{\text{formod},i}^2
+ *   \f]
+ *   and stores its reciprocal square root:
+ *   \f[
+ *   (\sigma_{\epsilon,i}^{-1}) = \frac{1}{\sqrt{\sigma_{\epsilon,i}^2}}
+ *   \f]
+ *
+ * - **Noise error (`sig_noise`)**  
+ *   Determined from the instrument noise level defined in `ret->err_noise[id]`
+ *   for each spectral channel. The noise term is always included in the fit.
+ *
+ * - **Forward model error (`sig_formod`)**  
+ *   Computed as a fixed percentage (`ret->err_formod[id]`) of the
+ *   measured radiance (or brightness temperature) per channel.
+ *   This represents uncertainty due to imperfect forward modeling.
+ *
+ * - The inverse total standard deviation vector (`sig_eps_inv`)
+ *   is used to normalize the measurement residuals \f$(y - F(x))\f$
+ *   in the cost function.
+ *
+ * @see obs2y, copy_obs, cost_function, set_cov_apr
+ *
+ * @note
+ * - Only finite observation elements are considered; invalid values are set to `NAN`.
+ * - Units correspond to the observation quantity:
+ *   - Radiance: [W/(m²·sr·cm⁻¹)]
+ *   - Brightness temperature: [K]
+ * - The forward model error is always relative, expressed in percent (%).
+ *
+ * @example
+ * @code
+ * gsl_vector *sig_noise  = gsl_vector_alloc(m);
+ * gsl_vector *sig_formod = gsl_vector_alloc(m);
+ * gsl_vector *sig_eps_inv = gsl_vector_alloc(m);
+ *
+ * set_cov_meas(&ret, &ctl, &obs, sig_noise, sig_formod, sig_eps_inv);
+ * // sig_eps_inv can now be used to weight residuals in cost function
+ * @endcode
+ *
+ * @warning
+ * - A zero or negative uncertainty triggers a runtime error.
+ * - Assumes `obs` and `ctl` are consistent in dimension and indexing.
+ *
+ * @references
+ * Rodgers, C. D. (2000). *Inverse Methods for Atmospheric Sounding:
+ * Theory and Practice.* World Scientific.
+ *
+ * @author
+ * Lars Hoffmann
+ */
+void set_cov_meas(
+  ret_t * ret,
+  ctl_t * ctl,
+  obs_t * obs,
+  gsl_vector * sig_noise,
+  gsl_vector * sig_formod,
+  gsl_vector * sig_eps_inv);
 
 /**
  * @brief Compute the solar zenith angle for a given time and location.
@@ -3269,6 +3898,69 @@ void write_shape(
   const double *x,
   const double *y,
   const int n);
+
+/**
+ * @brief Write retrieval standard deviation profiles to disk.
+ *
+ * Extracts the diagonal elements of a covariance matrix (a priori,
+ * posterior, or error covariance) to obtain the standard deviations
+ * of retrieved quantities and writes them as an atmospheric profile file.
+ *
+ * @param[in]  quantity  Name of the retrieved quantity (e.g., `"apr"`, `"pos"`, `"err"`),
+ *                       used to label the output file.
+ * @param[in]  ret       Retrieval configuration structure (`ret_t`),
+ *                       providing the working directory for output files.
+ * @param[in]  ctl       Global control structure (`ctl_t`) defining retrieval setup and quantities.
+ * @param[in]  atm       Reference atmospheric state (`atm_t`) for spatial/geometric metadata.
+ * @param[in]  s         Covariance matrix (`gsl_matrix`, n×n) from which standard deviations
+ *                       are derived (typically posterior covariance \f$\mathbf{S}\f$).
+ *
+ * @details
+ * This function performs the following operations:
+ * 1. Extracts the standard deviation vector \f$\sigma_i = \sqrt{S_{ii}}\f$
+ *    from the diagonal of the covariance matrix \f$\mathbf{S}\f$.
+ * 2. Copies the reference atmospheric structure (`atm`) into an auxiliary
+ *    structure (`atm_aux`) to preserve coordinate and geometric metadata.
+ * 3. Converts the standard deviation vector into the atmospheric representation
+ *    using `x2atm()`, thereby mapping elements of the state vector to the
+ *    corresponding atmospheric quantities.
+ * 4. Writes the result to disk as a diagnostic file:
+ *    \f[
+ *    \texttt{<ret->dir>/atm\_err\_<quantity>.tab}
+ *    \f]
+ *    using the standard JURASSIC atmospheric file format.
+ *
+ * @see x2atm, copy_atm, write_atm, set_cov_apr, set_cov_meas
+ *
+ * @note
+ * - The file naming convention follows `atm_err_<quantity>.tab`
+ *   (e.g., `atm_err_apr.tab`, `atm_err_pos.tab`).
+ * - The output profile includes all state quantities defined in `ctl`.
+ * - Only diagonal uncertainties are written; correlations are not stored.
+ *
+ * @example
+ * @code
+ * // Write posterior error standard deviations
+ * write_stddev("pos", &ret, &ctl, &atm, S_post);
+ * @endcode
+ *
+ * @warning
+ * - The covariance matrix `s` must be symmetric and positive-definite.
+ * - The state vector mapping (`x2atm`) must correspond to the matrix ordering.
+ *
+ * @references
+ * Rodgers, C. D. (2000). *Inverse Methods for Atmospheric Sounding:
+ * Theory and Practice.* World Scientific.
+ *
+ * @author
+ * Lars Hoffmann
+ */
+void write_stddev(
+  const char *quantity,
+  ret_t * ret,
+  ctl_t * ctl,
+  atm_t * atm,
+  gsl_matrix * s);
 
 /**
  * @brief Write emissivity look-up tables to disk (ASCII or binary format).
