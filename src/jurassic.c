@@ -4338,18 +4338,18 @@ void raytrace(
   obs->tpz[ir] = obs->vpz[ir];
   obs->tplon[ir] = obs->vplon[ir];
   obs->tplat[ir] = obs->vplat[ir];
-  
+
   /* Get altitude range of atmospheric data... */
   gsl_stats_minmax(&zmin, &zmax, atm->z, 1, (size_t) atm->np);
-  
+
   /* Ensure that altitude grid includes the local geometric surface... */
   if (zmin > 1e-3 || zmin < -1e-3)
     ERRMSG("Atmospheric profiles must include surface level (z = 0 km)!");
-  
+
   /* Check observer altitude... */
   if (obs->obsz[ir] < zmin)
     ERRMSG("Observer below surface!");
-  
+
   /* Check view point altitude... */
   if (obs->vpz[ir] > zmax)
     return;

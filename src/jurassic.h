@@ -100,6 +100,10 @@
 #ifndef JURASSIC_H
 #define JURASSIC_H
 
+/* ------------------------------------------------------------
+   Includes...
+   ------------------------------------------------------------ */
+
 #include <errno.h>
 #include <gsl/gsl_math.h>
 #include <gsl/gsl_blas.h>
@@ -113,138 +117,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
-
-/* ------------------------------------------------------------
-   Macros...
-   ------------------------------------------------------------ */
-
-/*! Allocate memory. */
-#define ALLOC(ptr, type, n)				\
-  if((ptr=malloc((size_t)(n)*sizeof(type)))==NULL)	\
-    ERRMSG("Out of memory!");
-
-/*! Compute brightness temperature. */
-#define BRIGHT(rad, nu)					\
-  (C2 * (nu) / gsl_log1p(C1 * POW3(nu) / (rad)))
-
-/*! Convert degrees to radians. */
-#define DEG2RAD(deg)				\
-  ((deg) * (M_PI / 180.0))
-
-/*! Compute Cartesian distance between two vectors. */
-#define DIST(a, b) sqrt(DIST2(a, b))
-
-/*! Compute squared distance between two vectors. */
-#define DIST2(a, b)							\
-  ((a[0]-b[0])*(a[0]-b[0])+(a[1]-b[1])*(a[1]-b[1])+(a[2]-b[2])*(a[2]-b[2]))
-
-/*! Compute dot product of two vectors. */
-#define DOTP(a, b) (a[0]*b[0]+a[1]*b[1]+a[2]*b[2])
-
-/*! Read binary data. */
-#define FREAD(ptr, type, size, out) {					\
-    if(fread(ptr, sizeof(type), size, out)!=size)			\
-      ERRMSG("Error while reading!");					\
-  }
-
-/*! Write binary data. */
-#define FWRITE(ptr, type, size, out) {					\
-    if(fwrite(ptr, sizeof(type), size, out)!=size)			\
-      ERRMSG("Error while writing!");					\
-  }
-
-/*! @brief Macro to determine the maximum of two values. */
-#define MAX(a,b)				\
-  (((a)>(b))?(a):(b))
-
-/*! Macro to determine the minimum of two values. */
-#define MIN(a,b)				\
-  (((a)<(b))?(a):(b))
-
-/*! Compute linear interpolation. */
-#define LIN(x0, y0, x1, y1, x)			\
-  ((y0)+((y1)-(y0))/((x1)-(x0))*((x)-(x0)))
-
-/*! Compute logarithmic interpolation in x. */
-#define LOGX(x0, y0, x1, y1, x)				\
-  (((x)/(x0)>0 && (x1)/(x0)>0)				\
-   ? ((y0)+((y1)-(y0))*log((x)/(x0))/log((x1)/(x0)))	\
-   : LIN(x0, y0, x1, y1, x))
-
-/*! Compute logarithmic interpolation in y. */
-#define LOGY(x0, y0, x1, y1, x)					\
-  (((y1)/(y0)>0)						\
-   ? ((y0)*exp(log((y1)/(y0))/((x1)-(x0))*((x)-(x0))))          \
-   : LIN(x0, y0, x1, y1, x))
-
-/*! Compute norm of a vector. */
-#define NORM(a) sqrt(DOTP(a, a))
-
-/*! Compute Planck function. */
-#define PLANCK(T, nu)				\
-  (C1 * POW3(nu) / gsl_expm1(C2 * (nu) / (T)))
-
-/*! Compute x^2. */
-#define POW2(x) ((x)*(x))
-
-/*! Compute x^3. */
-#define POW3(x) ((x)*(x)*(x))
-
-/*! Convert radians to degrees. */
-#define RAD2DEG(rad)				\
-  ((rad) * (180.0 / M_PI))
-
-/*! Compute refractivity (return value is n - 1). */
-#define REFRAC(p, T)				\
-  (7.753e-05 * (p) / (T))
-
-/*! Start or stop a timer. */
-#define TIMER(name, mode)				\
-  {timer(name, __FILE__, __func__, __LINE__, mode);}
-
-/*! Read string tokens. */
-#define TOK(line, tok, format, var) {			\
-    if(((tok)=strtok((line), " \t"))) {			\
-      if(sscanf(tok, format, &(var))!=1) continue;	\
-    } else ERRMSG("Error while reading!");		\
-  }
-
-/* ------------------------------------------------------------
-   Log messages...
-   ------------------------------------------------------------ */
-
-/*! Level of log messages (0=none, 1=basic, 2=detailed, 3=debug). */
-#ifndef LOGLEV
-#define LOGLEV 2
-#endif
-
-/*! Print log message. */
-#define LOG(level, ...) {						\
-    if(level >= 2)							\
-      printf("  ");							\
-    if(level <= LOGLEV) {						\
-      printf(__VA_ARGS__);						\
-      printf("\n");							\
-    }									\
-  }
-
-/*! Print warning message. */
-#define WARN(...) {							\
-    printf("\nWarning (%s, %s, l%d): ", __FILE__, __func__, __LINE__);	\
-    LOG(0, __VA_ARGS__);						\
-  }
-
-/*! Print error message and quit program. */
-#define ERRMSG(...) {							\
-    printf("\nError (%s, %s, l%d): ", __FILE__, __func__, __LINE__);	\
-    LOG(0, __VA_ARGS__);						\
-    exit(EXIT_FAILURE);							\
-  }
-
-/*! Print macro for debugging. */
-#define PRINT(format, var)						\
-  printf("Print (%s, %s, l%d): %s= "format"\n",				\
-	 __FILE__, __func__, __LINE__, #var, var);
 
 /* ------------------------------------------------------------
    Constants...
@@ -401,12 +273,12 @@
 
 /*! Maximum size of state vector. */
 #ifndef N
-#define N ((2+NG+NW)*NP+NCL+NSF+3)
+#define N ((2 + NG + NW) * NP + NCL + NSF + 3)
 #endif
 
 /*! Maximum number of quantities. */
 #ifndef NQ
-#define NQ (2+NG+NW+NCL+NSF+3)
+#define NQ (5 + NG + NW + NCL + NSF)
 #endif
 
 /*! Maximum number of LOS points. */
@@ -460,31 +332,574 @@
 #define IDXT 1
 
 /*! Indices for volume mixing ratios. */
-#define IDXQ(ig) (2+ig)
+#define IDXQ(ig) (2 + (ig))
 
 /*! Indices for extinction. */
-#define IDXK(iw) (2+ctl->ng+iw)
+#define IDXK(iw) (2 + (ctl->ng) + (iw))
 
 /*! Index for cloud layer height. */
-#define IDXCLZ (2+ctl->ng+ctl->nw)
+#define IDXCLZ (2 + (ctl->ng) + (ctl->nw))
 
 /*! Index for cloud layer depth. */
-#define IDXCLDZ (3+ctl->ng+ctl->nw)
+#define IDXCLDZ (3 + (ctl->ng) + (ctl->nw))
 
 /*! Indices for cloud layer extinction. */
-#define IDXCLK(icl) (4+ctl->ng+ctl->nw+icl)
-
-/*! Index for surface layer height. */
-#define IDXSFZ (4+ctl->ng+ctl->nw+ctl->ncl)
-
-/*! Index for surface layer pressure. */
-#define IDXSFP (5+ctl->ng+ctl->nw+ctl->ncl)
+#define IDXCLK(icl) (4 + (ctl->ng) + (ctl->nw) + (icl))
 
 /*! Index for surface layer temperature. */
-#define IDXSFT (6+ctl->ng+ctl->nw+ctl->ncl)
+#define IDXSFT (4 + (ctl->ng) + (ctl->nw) + (ctl->ncl))
 
 /*! Indices for surface layer emissivity. */
-#define IDXSFEPS(isf) (7+ctl->ng+ctl->nw+ctl->ncl+isf)
+#define IDXSFEPS(isf) (5 + (ctl->ng) + (ctl->nw) + (ctl->ncl) + (isf))
+
+/* ------------------------------------------------------------
+   Macros...
+   ------------------------------------------------------------ */
+
+/**
+ * @brief Allocate memory for an array.
+ *
+ * Allocates a contiguous block of memory for an array of `n` elements of
+ * type `type` and assigns the pointer to `ptr`. If allocation fails, the
+ * program prints an error message and terminates.
+ *
+ * @param[out] ptr Pointer to be allocated.
+ * @param[in] type Data type of the elements to allocate.
+ * @param[in] n Number of elements to allocate.
+ *
+ * @note Wraps `malloc()` with built-in error handling.
+ *
+ * @see FREAD, FWRITE
+ *
+ * @author Lars Hoffmann
+ */
+#define ALLOC(ptr, type, n) \
+  if((ptr=malloc((size_t)(n)*sizeof(type)))==NULL) \
+    ERRMSG("Out of memory!");
+
+/**
+ * @brief Compute brightness temperature from radiance.
+ *
+ * Computes the equivalent blackbody (brightness) temperature corresponding to
+ * a given spectral radiance and wavenumber, using the inverse Planck function.
+ * This form assumes the spectroscopic constants `C1` and `C2` are defined for
+ * wavenumber units (cm⁻¹).
+ *
+ * @param[in] rad Spectral radiance [W·m⁻²·sr⁻¹·(cm⁻¹)⁻¹].
+ * @param[in] nu  Wavenumber [cm⁻¹].
+ *
+ * @return Brightness temperature [K].
+ *
+ * @see PLANCK, C1, C2
+ *
+ * @note Based on Planck’s law in wavenumber form:
+ *       \f$ T_b = \frac{c_2 \nu}{\ln(1 + \frac{c_1 \nu^3}{L_\nu})} \f$
+ *       where \( L_\nu \) is radiance.
+ *
+ * @author Lars Hoffmann
+ */
+#define BRIGHT(rad, nu) \
+  (C2 * (nu) / gsl_log1p(C1 * POW3(nu) / (rad)))
+
+/**
+ * @brief Convert degrees to radians.
+ *
+ * Converts an angle measured in degrees to radians using:
+ * \f$ \text{radians} = \text{degrees} \times \frac{\pi}{180} \f$.
+ *
+ * @param[in] deg Angle in degrees.
+ *
+ * @return Angle in radians.
+ *
+ * @see RAD2DEG
+ *
+ * @author Lars Hoffmann
+ */
+#define DEG2RAD(deg) ((deg) * (M_PI / 180.0))
+
+/**
+ * @brief Compute Cartesian distance between two 3D vectors.
+ *
+ * Computes the Euclidean distance between two 3D vectors or points.
+ *
+ * @param[in] a First vector (array of length 3).
+ * @param[in] b Second vector (array of length 3).
+ *
+ * @return Euclidean distance between a and b.
+ *
+ * @see DIST2
+ *
+ * @note Equivalent to \f$ \sqrt{(x_1-x_2)^2 + (y_1-y_2)^2 + (z_1-z_2)^2} \f$.
+ *
+ * @author Lars Hoffmann
+ */
+#define DIST(a, b) sqrt(DIST2(a, b))
+
+/**
+ * @brief Compute squared distance between two 3D vectors.
+ *
+ * Computes the square of the Euclidean distance between two 3D vectors.
+ * Useful when only relative distances are needed (avoids square root).
+ *
+ * @param[in] a First vector (array of length 3).
+ * @param[in] b Second vector (array of length 3).
+ *
+ * @return Squared distance between a and b.
+ *
+ * @see DIST
+ *
+ * @author Lars Hoffmann
+ */
+#define DIST2(a, b) \
+  ((a[0]-b[0])*(a[0]-b[0])+(a[1]-b[1])*(a[1]-b[1])+(a[2]-b[2])*(a[2]-b[2]))
+
+/**
+ * @brief Compute dot product of two 3D vectors.
+ *
+ * Computes the scalar (dot) product between two 3-element vectors:
+ * \f$ a \cdot b = a_x b_x + a_y b_y + a_z b_z \f$.
+ *
+ * @param[in] a First vector (array of length 3).
+ * @param[in] b Second vector (array of length 3).
+ *
+ * @return Scalar dot product of a and b.
+ *
+ * @see NORM
+ *
+ * @author Lars Hoffmann
+ */
+#define DOTP(a, b) (a[0]*b[0]+a[1]*b[1]+a[2]*b[2])
+
+/**
+ * @brief Read binary data from a file.
+ *
+ * Reads `size` elements of type `type` from the file stream `out` into
+ * the memory pointed to by `ptr`. If the number of elements read differs
+ * from `size`, an error message is printed and the program terminates.
+ *
+ * @param[out] ptr Pointer to destination memory buffer.
+ * @param[in] type Type of each element to read.
+ * @param[in] size Number of elements to read.
+ * @param[in,out] out File stream opened for reading.
+ *
+ * @see FWRITE, ALLOC
+ *
+ * @note Wraps `fread()` with error handling.
+ *
+ * @author Lars Hoffmann
+ */
+#define FREAD(ptr, type, size, out) { \
+    if(fread(ptr, sizeof(type), size, out)!=size) \
+      ERRMSG("Error while reading!"); \
+  }
+
+/**
+ * @brief Write binary data to a file.
+ *
+ * Writes `size` elements of type `type` from the memory pointed to by `ptr`
+ * to the file stream `out`. If the number of elements written differs
+ * from `size`, an error message is printed and the program terminates.
+ *
+ * @param[in] ptr Pointer to memory buffer containing data to write.
+ * @param[in] type Type of each element to write.
+ * @param[in] size Number of elements to write.
+ * @param[in,out] out File stream opened for writing.
+ *
+ * @see FREAD
+ *
+ * @note Wraps `fwrite()` with error handling.
+ *
+ * @author Lars Hoffmann
+ */
+#define FWRITE(ptr, type, size, out) { \
+    if(fwrite(ptr, sizeof(type), size, out)!=size) \
+      ERRMSG("Error while writing!"); \
+  }
+
+/**
+ * @brief Determine the maximum of two values.
+ *
+ * Returns the greater of two scalar values.
+ *
+ * @param[in] a First value.
+ * @param[in] b Second value.
+ *
+ * @return Maximum of a and b.
+ *
+ * @see MIN
+ *
+ * @note Both arguments are evaluated multiple times; avoid side effects.
+ *
+ * @author Lars Hoffmann
+ */
+#define MAX(a,b) (((a)>(b))?(a):(b))
+
+/**
+ * @brief Determine the minimum of two values.
+ *
+ * Returns the smaller of two scalar values.
+ *
+ * @param[in] a First value.
+ * @param[in] b Second value.
+ *
+ * @return Minimum of a and b.
+ *
+ * @see MAX
+ *
+ * @note Both arguments are evaluated multiple times; avoid side effects.
+ *
+ * @author Lars Hoffmann
+ */
+#define MIN(a,b) (((a)<(b))?(a):(b))
+
+/**
+ * @brief Compute linear interpolation.
+ *
+ * Performs simple linear interpolation between two known points
+ * (x₀, y₀) and (x₁, y₁) to estimate the value of y at a given x.
+ *
+ * @param[in] x0 Lower x-value.
+ * @param[in] y0 Function value at x₀.
+ * @param[in] x1 Upper x-value.
+ * @param[in] y1 Function value at x₁.
+ * @param[in] x Interpolation point.
+ *
+ * @return Linearly interpolated y-value at x.
+ *
+ * @see LOGX, LOGY
+ *
+ * @author Lars Hoffmann
+ */
+#define LIN(x0, y0, x1, y1, x) \
+  ((y0)+((y1)-(y0))/((x1)-(x0))*((x)-(x0)))
+
+/**
+ * @brief Compute logarithmic interpolation in x.
+ *
+ * Performs interpolation assuming logarithmic variation in the x-axis.
+ * If either x/x₀ or x₁/x₀ is nonpositive, reverts to linear interpolation.
+ *
+ * @param[in] x0 Lower x-value.
+ * @param[in] y0 Function value at x₀.
+ * @param[in] x1 Upper x-value.
+ * @param[in] y1 Function value at x₁.
+ * @param[in] x Interpolation point.
+ *
+ * @return Interpolated y-value at x.
+ *
+ * @see LIN, LOGY
+ *
+ * @author Lars Hoffmann
+ */
+#define LOGX(x0, y0, x1, y1, x) \
+  (((x)/(x0)>0 && (x1)/(x0)>0) \
+   ? ((y0)+((y1)-(y0))*log((x)/(x0))/log((x1)/(x0))) \
+   : LIN(x0, y0, x1, y1, x))
+
+/**
+ * @brief Compute logarithmic interpolation in y.
+ *
+ * Performs interpolation assuming exponential variation in the y-axis
+ * (logarithmic in y). If y₁/y₀ is nonpositive, reverts to linear interpolation.
+ *
+ * @param[in] x0 Lower x-value.
+ * @param[in] y0 Function value at x₀.
+ * @param[in] x1 Upper x-value.
+ * @param[in] y1 Function value at x₁.
+ * @param[in] x Interpolation point.
+ *
+ * @return Interpolated y-value at x.
+ *
+ * @see LIN, LOGX
+ *
+ * @author Lars Hoffmann
+ */
+#define LOGY(x0, y0, x1, y1, x) \
+  (((y1)/(y0)>0) \
+   ? ((y0)*exp(log((y1)/(y0))/((x1)-(x0))*((x)-(x0)))) \
+   : LIN(x0, y0, x1, y1, x))
+
+/**
+ * @brief Compute the norm (magnitude) of a 3D vector.
+ *
+ * Computes the Euclidean norm using the dot product:
+ * \f$ |a| = \sqrt{a \cdot a} \f$.
+ *
+ * @param[in] a Input vector (array of length 3).
+ *
+ * @return Magnitude (norm) of vector a.
+ *
+ * @see DOTP
+ *
+ * @author Lars Hoffmann
+ */
+#define NORM(a) sqrt(DOTP(a, a))
+
+/**
+ * @brief Compute the Planck function in wavenumber form.
+ *
+ * Computes spectral radiance per unit wavenumber using Planck’s law:
+ * \f$ B_\nu(T) = \frac{C_1 \nu^3}{\exp(C_2 \nu / T) - 1} \f$.
+ *
+ * @param[in] T Temperature [K].
+ * @param[in] nu Wavenumber [cm⁻¹].
+ *
+ * @return Spectral radiance [W·m⁻²·sr⁻¹·(cm⁻¹)⁻¹].
+ *
+ * @see BRIGHT, C1, C2
+ *
+ * @note Constants `C1` and `C2` must correspond to wavenumber units.
+ *
+ * @author Lars Hoffmann
+ */
+#define PLANCK(T, nu) \
+  (C1 * POW3(nu) / gsl_expm1(C2 * (nu) / (T)))
+
+/**
+ * @brief Compute the square of a value.
+ *
+ * Returns x². Inline alternative to `pow(x,2)`.
+ *
+ * @param[in] x Input value.
+ *
+ * @return x squared.
+ *
+ * @author Lars Hoffmann
+ */
+#define POW2(x) ((x)*(x))
+
+/**
+ * @brief Compute the cube of a value.
+ *
+ * Returns x³. Inline alternative to `pow(x,3)`.
+ *
+ * @param[in] x Input value.
+ *
+ * @return x cubed.
+ *
+ * @author Lars Hoffmann
+ */
+#define POW3(x) ((x)*(x)*(x))
+
+/**
+ * @brief Convert radians to degrees.
+ *
+ * Converts an angle measured in radians to degrees using:
+ * \f$ \text{degrees} = \text{radians} \times \frac{180}{\pi} \f$.
+ *
+ * @param[in] rad Angle in radians.
+ *
+ * @return Angle in degrees.
+ *
+ * @see DEG2RAD
+ *
+ * @author Lars Hoffmann
+ */
+#define RAD2DEG(rad) ((rad) * (180.0 / M_PI))
+
+/**
+ * @brief Compute air refractivity (n - 1).
+ *
+ * Approximates the refractivity of air under standard conditions using:
+ * \f$ n - 1 = 7.753\times10^{-5} \frac{p}{T} \f$,
+ * where p is pressure (hPa) and T is temperature (K).
+ *
+ * @param[in] p Pressure [hPa].
+ * @param[in] T Temperature [K].
+ *
+ * @return Refractivity (dimensionless, n - 1).
+ *
+ * @author Lars Hoffmann
+ */
+#define REFRAC(p, T) (7.753e-05 * (p) / (T))
+
+/**
+ * @brief Start or stop a named timer.
+ *
+ * Calls the `timer()` function with contextual information (file name, function
+ * name, and line number) to start or stop timing. Useful for performance profiling.
+ *
+ * @param[in] name Name or label of the timer.
+ * @param[in] mode Operation mode (e.g., start or stop).
+ *
+ * @note Relies on a user-defined `timer()` function.
+ *
+ * @author Lars Hoffmann
+ */
+#define TIMER(name, mode) \
+  {timer(name, __FILE__, __func__, __LINE__, mode);}
+
+/**
+ * @brief Tokenize a string and parse a variable.
+ *
+ * Splits a text line into tokens separated by spaces or tabs, and reads
+ * a value from the first token using `sscanf()` and the provided format.
+ * If tokenization or parsing fails, an error message is printed.
+ *
+ * @param[in,out] line Input string buffer to tokenize (modified by strtok()).
+ * @param[out] tok Pointer to token string.
+ * @param[in] format Format string for `sscanf()`.
+ * @param[out] var Variable to store parsed value.
+ *
+ * @note Uses `strtok()` internally and modifies the input buffer.
+ *
+ * @see FREAD, FWRITE
+ *
+ * @author Lars Hoffmann
+ */
+#define TOK(line, tok, format, var) { \
+    if(((tok)=strtok((line), " \t"))) { \
+      if(sscanf(tok, format, &(var))!=1) continue; \
+    } else ERRMSG("Error while reading!"); \
+  }
+
+/* ------------------------------------------------------------
+   Log messages...
+   ------------------------------------------------------------ */
+
+/*! Level of log messages (0=none, 1=basic, 2=detailed, 3=debug). */
+#ifndef LOGLEV
+#define LOGLEV 2
+#endif
+
+/*!
+ * \brief Print a log message with a specified logging level.
+ *
+ * This macro prints a formatted log message to the standard output if
+ * the specified logging level meets certain conditions. The message
+ * will be indented if the logging level is greater than or equal to
+ * 2.
+ * 
+ * \param level The logging level of the message. This should be an integer value.
+ * \param ... The formatted message string and its arguments, similar to printf.
+ *
+ * \details
+ * The `LOG` macro provides a simple way to log messages with
+ * different levels of importance. The message is only printed if the
+ * specified `level` is less than or equal to the pre-defined `LOGLEV`
+ * macro. If the `level` is greater than or equal to 2, the message is
+ * preceded by two spaces for indentation.
+ *
+ * The macro expands to a block of code that:
+ * - Checks if the `level` is greater than or equal to 2, and if so, prints two spaces.
+ * - Checks if the `level` is less than or equal to `LOGLEV`, and if so, prints the
+ *   formatted message followed by a newline.
+ *
+ * \note
+ * The `LOGLEV` macro must be defined with an appropriate logging level
+ * before using the `LOG` macro.
+ * 
+ * @author Lars Hoffmann
+ */
+#define LOG(level, ...) {						\
+    if(level >= 2)							\
+      printf("  ");							\
+    if(level <= LOGLEV) {						\
+      printf(__VA_ARGS__);						\
+      printf("\n");							\
+    }									\
+  }
+
+/*!
+ * \brief Print a warning message with contextual information.
+ *
+ * This macro prints a formatted warning message to the standard
+ * output, including the file name, function name, and line number
+ * where the warning occurred. The message is then passed to the `LOG`
+ * macro with a logging level of 0.
+ * 
+ * \param ... The formatted warning message string and its arguments, similar to printf.
+ *
+ * \details
+ * The `WARN` macro is used to print warning messages with additional context
+ * about where the warning was triggered. The message includes the following
+ * contextual information:
+ * - The name of the source file where the macro is called (`__FILE__`).
+ * - The name of the function where the macro is called (`__func__`).
+ * - The line number in the source file where the macro is called (`__LINE__`).
+ *
+ * After printing this contextual information, the macro uses the
+ * `LOG` macro with a logging level of 0 to print the actual warning
+ * message. This ensures that warning messages are always logged,
+ * regardless of the value of `LOGLEV`.
+ *
+ * \note
+ * The `LOG` macro must be defined before using the `WARN` macro.
+ * 
+ * @author Lars Hoffmann
+ */
+#define WARN(...) {							\
+    printf("\nWarning (%s, %s, l%d): ", __FILE__, __func__, __LINE__);	\
+    LOG(0, __VA_ARGS__);						\
+  }
+
+/*!
+ * \brief Print an error message with contextual information and terminate the program.
+ *
+ * This macro prints a formatted error message to the standard output,
+ * including the file name, function name, and line number where the
+ * error occurred. After printing the message, the program is
+ * terminated with an exit status indicating failure.
+ * 
+ * \param ... The formatted error message string and its arguments, similar to printf.
+ *
+ * \details
+ * The `ERRMSG` macro is used to report critical errors that require the
+ * program to terminate immediately. The message includes the following
+ * contextual information:
+ * - The name of the source file where the macro is called (`__FILE__`).
+ * - The name of the function where the macro is called (`__func__`).
+ * - The line number in the source file where the macro is called (`__LINE__`).
+ *
+ * After printing this contextual information, the macro uses the
+ * `LOG` macro with a logging level of 0 to print the actual error
+ * message. Finally, the program exits with a failure status
+ * (`EXIT_FAILURE`).
+ *
+ * \note
+ * The `LOG` macro must be defined before using the `ERRMSG` macro.
+ * 
+ * @author Lars Hoffmann
+ */
+#define ERRMSG(...) {							\
+    printf("\nError (%s, %s, l%d): ", __FILE__, __func__, __LINE__);	\
+    LOG(0, __VA_ARGS__);						\
+    exit(EXIT_FAILURE);							\
+  }
+
+
+/*!
+ * \brief Print the value of a variable with contextual information.
+ *
+ * This macro prints the value of a variable to the standard output,
+ * including the file name, function name, and line number where the
+ * macro is called. The output also includes the variable's name and
+ * value in a formatted string.
+ * 
+ * \param format The format string used to print the variable's value, similar to printf.
+ * \param var The variable to be printed.
+ *
+ * \details
+ * The `PRINT` macro is used to output the value of a variable along with
+ * additional context about where the macro is called. The message includes:
+ * - The name of the source file where the macro is called (`__FILE__`).
+ * - The name of the function where the macro is called (`__func__`).
+ * - The line number in the source file where the macro is called (`__LINE__`).
+ * - The name of the variable being printed (`#var`).
+ * - The value of the variable, formatted according to the provided format string (`format`).
+ *
+ * This macro is particularly useful for debugging purposes, providing
+ * a convenient way to trace variable values and their locations in
+ * the code.
+ *
+ * \note
+ * The format string must be compatible with the type of the variable being printed.
+ * 
+ * @author Lars Hoffmann
+ */
+#define PRINT(format, var)						\
+  printf("Print (%s, %s, l%d): %s= "format"\n",				\
+	 __FILE__, __func__, __LINE__, #var, var);
 
 /* ------------------------------------------------------------
    Structs...
