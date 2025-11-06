@@ -20,6 +20,7 @@ remote sensing measurements.
 [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/slcs-jsc/jurassic)
 [![license](https://img.shields.io/github/license/slcs-jsc/jurassic.svg)](https://github.com/slcs-jsc/jurassic/blob/master/COPYING)
 [![doi](https://zenodo.org/badge/DOI/10.5281/zenodo.4572889.svg)](https://doi.org/10.5281/zenodo.4572889)
+[![SWH](https://archive.softwareheritage.org/badge/origin/https://github.com/slcs-jsc/jurassic/)](https://archive.softwareheritage.org/browse/origin/?origin_url=https://github.com/slcs-jsc/jurassic)
 
 ## Features
 
