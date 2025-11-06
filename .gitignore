@@ -25,3 +25,4 @@ src/tblfmt
 src/tblgen
 src/time2jsec
 tab/
+tests/ret_test/data/
