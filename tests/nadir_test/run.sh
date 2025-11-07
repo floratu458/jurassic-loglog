@@ -21,6 +21,9 @@ $jurassic/nadir nadir.ctl data/obs.tab
 # Call forward model...
 $jurassic/formod nadir.ctl data/obs.tab data/atm.tab data/rad.tab TASK time
 
+# CGA test...
+$jurassic/formod nadir.ctl data/obs.tab data/atm.tab data/rad_cga.tab FORMOD 0
+
 # Compute kernel...
 $jurassic/kernel nadir.ctl data/obs.tab data/atm.tab data/kernel.tab
 
