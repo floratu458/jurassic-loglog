@@ -26,3 +26,4 @@ src/tblgen
 src/time2jsec
 tab/
 tests/ret_test/data/
+tests/tools_test/data/
