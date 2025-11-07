@@ -9,21 +9,25 @@ export LC_ALL=C
 # Setup...
 jurassic=../../src
 
+# Create directory...
+rm -rf data && mkdir -p data || exit
+
 # Create atmospheric data file...
-$jurassic/climatology limb.ctl atm.tab
+$jurassic/climatology limb.ctl data/atm.tab
 
 # Create observation geomtry...
-$jurassic/limb limb.ctl obs.tab
+$jurassic/limb limb.ctl data/obs.tab
 
 # Call forward model...
-$jurassic/formod limb.ctl obs.tab atm.tab rad.tab TASK time
+$jurassic/formod limb.ctl data/obs.tab data/atm.tab data/rad.tab TASK time
 
 # Compute kernel...
-$jurassic/kernel limb.ctl obs.tab atm.tab kernel.tab
+$jurassic/kernel limb.ctl obs.tab data/atm.tab data/kernel.tab
 
 # Compare files...
 echo -e "\nCompare results..."
 error=0
-diff -sq kernel.tab kernel.org
-diff -sq rad.tab rad.org || error=1
+for f in $(ls data.ref/*.tab) ; do
+    diff -q -s data/"$(basename "$f")" "$f" || error=1
+done
 exit $error

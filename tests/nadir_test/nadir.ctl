@@ -3,7 +3,7 @@
 # ======================================================================
 
 # Table directory...
-TBLBASE = ./airs
+TBLBASE = ../data/airs
 
 # Emitters...
 NG = 1

@@ -25,5 +25,7 @@ src/tblfmt
 src/tblgen
 src/time2jsec
 tab/
+tests/limb_test/data/
+tests/nadir_test/data/
 tests/ret_test/data/
 tests/tools_test/data/
