@@ -6,7 +6,7 @@
 EXC = brightness climatology filter formod hydrostatic interpolate invert jsec2time kernel limb nadir obs2spec planck raytrace retrieval tblfmt tblgen time2jsec
 
 # List of tests...
-TESTS = limb_test nadir_test ret_test tools_test
+TESTS = limb_test nadir_test ret_test tbl_test tools_test
 
 # Installation directory...
 DESTDIR ?= ../bin
