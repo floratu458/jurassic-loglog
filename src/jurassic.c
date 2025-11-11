@@ -1135,6 +1135,47 @@ void climatology(
 
 /*****************************************************************************/
 
+double cos_sza(
+  const double sec,
+  const double lon,
+  const double lat) {
+
+  /* Number of days and fraction with respect to 2000-01-01T12:00Z... */
+  const double D = sec / 86400 - 0.5;
+
+  /* Geocentric apparent ecliptic longitude [rad]... */
+  const double g = DEG2RAD(357.529 + 0.98560028 * D);
+  const double q = 280.459 + 0.98564736 * D;
+  const double L = DEG2RAD(q + 1.915 * sin(g) + 0.020 * sin(2 * g));
+
+  /* Mean obliquity of the ecliptic [rad]... */
+  const double e = DEG2RAD(23.439 - 0.00000036 * D);
+
+  /* Declination [rad]... */
+  const double sindec = sin(e) * sin(L);
+
+  /* Right ascension [rad]... */
+  const double ra = atan2(cos(e) * sin(L), cos(L));
+
+  /* Greenwich Mean Sidereal Time [h]... */
+  const double GMST = 18.697374558 + 24.06570982441908 * D;
+
+  /* Local Sidereal Time [h]... */
+  const double LST = GMST + lon / 15;
+
+  /* Hour angle [rad]... */
+  const double h = LST / 12 * M_PI - ra;
+
+  /* Convert latitude... */
+  const double lat_help = DEG2RAD(lat);
+
+  /* Return cosine of solar zenith angle... */
+  return sin(lat_help) * sindec + cos(lat_help)
+    * sqrt(1 - POW2(sindec)) * cos(h);
+}
+
+/*****************************************************************************/
+
 double cost_function(
   gsl_vector *dx,
   gsl_vector *dy,
@@ -3558,18 +3599,18 @@ void formod_pencil(
       /* Add solar term... */
       if (ctl->sftype >= 3) {
 
-	/* Get solar zenith angle... */
-	double sza2;
+	/* Get cosine of solar zenith angle... */
+	double cos_sza_val;
 	if (ctl->sfsza < 0)
-	  sza2 =
-	    sza(obs->time[ir], los->lon[los->np - 1], los->lat[los->np - 1]);
+	  cos_sza_val = cos_sza(obs->time[ir],
+				los->lon[los->np - 1], los->lat[los->np - 1]);
 	else
-	  sza2 = ctl->sfsza;
+	  cos_sza_val = cos(DEG2RAD(ctl->sfsza));
 
-	/* Check solar zenith angle... */
-	if (sza2 < 89.999) {
+	/* Check validity (avoid division by zero)... */
+	if (cos_sza_val > 1e-6) {
 
-	  /* Get angle of incidence... */
+	  /* Compute incidence direction cosine... */
 	  geo2cart(los->z[los->np - 1], los->lon[los->np - 1],
 		   los->lat[los->np - 1], x0);
 	  geo2cart(los->z[0], los->lon[0], los->lat[0], x1);
@@ -3577,10 +3618,10 @@ void formod_pencil(
 	    x1[i] -= x0[i];
 	  const double cosa = DOTP(x0, x1) / NORM(x0) / NORM(x1);
 
-	  /* Get ratio of SZA and incident radiation... */
-	  const double rcos = cosa / cos(DEG2RAD(sza2));
+	  /* Ratio of incident direction to solar zenith direction... */
+	  const double rcos = cosa / cos_sza_val;
 
-	  /* Add solar radiation... */
+	  /* Add solar radiance contribution... */
 	  for (int id = 0; id < ctl->nd; id++)
 	    rad[id] += 6.764e-5 / (2. * M_PI) * PLANCK(TSUN, ctl->nu[id])
 	      * tau_refl[id] * (1 - los->sfeps[id]) * tau[id] * rcos;
@@ -5553,46 +5594,6 @@ double scan_ctl(
   if (value != NULL)
     sprintf(value, "%s", rval);
   return atof(rval);
-}
-
-/*****************************************************************************/
-
-double sza(
-  const double sec,
-  const double lon,
-  const double lat) {
-
-  /* Number of days and fraction with respect to 2000-01-01T12:00Z... */
-  const double D = sec / 86400 - 0.5;
-
-  /* Geocentric apparent ecliptic longitude [rad]... */
-  const double g = DEG2RAD(357.529 + 0.98560028 * D);
-  const double q = 280.459 + 0.98564736 * D;
-  const double L = DEG2RAD(q + 1.915 * sin(g) + 0.020 * sin(2 * g));
-
-  /* Mean obliquity of the ecliptic [rad]... */
-  const double e = DEG2RAD(23.439 - 0.00000036 * D);
-
-  /* Declination [rad]... */
-  const double dec = asin(sin(e) * sin(L));
-
-  /* Right ascension [rad]... */
-  const double ra = atan2(cos(e) * sin(L), cos(L));
-
-  /* Greenwich Mean Sidereal Time [h]... */
-  const double GMST = 18.697374558 + 24.06570982441908 * D;
-
-  /* Local Sidereal Time [h]... */
-  const double LST = GMST + lon / 15;
-
-  /* Hour angle [rad]... */
-  const double h = LST / 12 * M_PI - ra;
-
-  /* Convert latitude... */
-  const double latr = DEG2RAD(lat);
-
-  /* Return solar zenith angle [deg]... */
-  return RAD2DEG(acos(sin(latr) * sin(dec) + cos(latr) * cos(dec) * cos(h)));
 }
 
 /*****************************************************************************/

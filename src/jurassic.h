@@ -1601,6 +1601,35 @@ void climatology(
   atm_t * atm_mean);
 
 /**
+ * @brief Calculates the cosine of the solar zenith angle.
+ *
+ * This function computes the cosine of the solar zenith angle (SZA), which describes
+ * the angle between the local zenith (straight up) and the line connecting the
+ * observer to the center of the Sun. The cosine of the SZA is often used directly
+ * in radiative transfer and photochemical calculations to avoid unnecessary use
+ * of trigonometric inverse functions.
+ *
+ * @param sec Seconds elapsed since 2000-01-01T12:00Z.
+ * @param lon Observer's longitude in degrees.
+ * @param lat Observer's latitude in degrees.
+ * @return The cosine of the solar zenith angle (dimensionless, range [-1, 1]).
+ *
+ * The cosine of the solar zenith angle is computed based on the observer's position
+ * (longitude and latitude) and the specified time in seconds elapsed since
+ * 2000-01-01T12:00Z.
+ *
+ * @note The input longitude and latitude must be specified in degrees.
+ *
+ * @see acos() — can be used to convert the returned value to the solar zenith angle in radians if needed.
+ *
+ * @author Lars Hoffmann
+ */
+double cos_sza(
+  const double sec,
+  const double lon,
+  const double lat);
+
+/**
  * @brief Compute the normalized quadratic cost function for optimal estimation.
  *
  * Evaluates the cost function
