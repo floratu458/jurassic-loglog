@@ -28,20 +28,20 @@ int main(
   int argc,
   char *argv[]) {
 
-  static atm_t atm, atm2;
+  static atm_t atm;
   static ctl_t ctl;
   static los_t los;
   static obs_t obs;
 
-  FILE *out;
+  FILE *out, *out2;
 
-  char filename[LEN], losbase[LEN];
+  char filename[2 * LEN], losbase[LEN];
 
   double u[NG];
 
   /* Check arguments... */
-  if (argc < 4)
-    ERRMSG("Give parameters: <ctl> <obs> <atm>");
+  if (argc < 5)
+    ERRMSG("Give parameters: <ctl> <obs> <atm> <raytrace.tab>");
 
   /* Read control parameters... */
   read_ctl(argc, argv, &ctl);
@@ -56,10 +56,10 @@ int main(
   read_atm(NULL, argv[3], &ctl, &atm);
 
   /* Write info... */
-  LOG(1, "Write raytrace data: raytrace.tab");
+  LOG(1, "Write raytrace data: %s", argv[4]);
 
   /* Create file... */
-  if (!(out = fopen("raytrace.tab", "w")))
+  if (!(out = fopen(argv[4], "w")))
     ERRMSG("Cannot create file!");
 
   /* Write header... */
@@ -86,24 +86,44 @@ int main(
     /* Raytracing... */
     raytrace(&ctl, &atm, &obs, &los, ir);
 
-    /* Copy data... */
-    atm2.np = los.np;
+    /* Set filename data... */
+    sprintf(filename, "%s.%d.tab", losbase, ir);
+
+    /* Write info... */
+    LOG(1, "Write LOS data: %s", filename);
+
+    /* Create file... */
+    if (!(out2 = fopen(filename, "w")))
+      ERRMSG("Cannot create file!");
+
+    /* Write header... */
+    fprintf(out2,
+	    "# $1 = time (seconds since 2000-01-01T00:00Z)\n"
+	    "# $2 = altitude [km]\n"
+	    "# $3 = longitude [deg]\n"
+	    "# $4 = latitude [deg]\n"
+	    "# $5 = pressure [hPa]\n" "# $6 = temperature [K]\n");
+    for (int ig = 0; ig < ctl.ng; ig++)
+      fprintf(out2, "# $%d = %s volume mixing ratio [ppv]\n",
+	      7 + ig, ctl.emitter[ig]);
+    for (int iw = 0; iw < ctl.nw; iw++)
+      fprintf(out2, "# $%d = extinction (window %d) [km^-1]\n",
+	      7 + ctl.ng + iw, iw);
+    fprintf(out2, "\n");
+
+    /* Write data... */
     for (int ip = 0; ip < los.np; ip++) {
-      atm2.time[ip] = obs.time[ir];
-      atm2.z[ip] = los.z[ip];
-      atm2.lon[ip] = los.lon[ip];
-      atm2.lat[ip] = los.lat[ip];
-      atm2.p[ip] = los.p[ip];
-      atm2.t[ip] = los.t[ip];
+      fprintf(out2, "%.2f %g %g %g %g %g", obs.time[ir], los.z[ip],
+	      los.lon[ip], los.lat[ip], los.p[ip], los.t[ip]);
       for (int ig = 0; ig < ctl.ng; ig++)
-	atm2.q[ig][ip] = los.q[ip][ig];
+	fprintf(out2, " %g", los.q[ip][ig]);
       for (int iw = 0; iw < ctl.nw; iw++)
-	atm2.k[iw][ip] = NAN;
+	fprintf(out2, " %g", los.k[ip][iw]);
+      fprintf(out2, "\n");
     }
 
-    /* Save data... */
-    sprintf(filename, "los.%d", ir);
-    write_atm(NULL, filename, &ctl, &atm2);
+    /* Close file... */
+    fclose(out2);
 
     /* Get column densities... */
     double s = 0;

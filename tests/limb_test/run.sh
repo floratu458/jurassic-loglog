@@ -30,6 +30,9 @@ $jurassic/formod limb.ctl data/obs.tab data/atm.tab data/rad_fov.tab FOV fov.tab
 # Compute kernel...
 $jurassic/kernel limb.ctl data/obs.tab data/atm.tab data/kernel.tab
 
+# Test raytracer...
+$jurassic/raytrace limb.ctl data/obs.tab data/atm.tab data/raytrace.tab LOSBASE data/los
+
 # Compare files...
 echo -e "\nCompare results..."
 error=0

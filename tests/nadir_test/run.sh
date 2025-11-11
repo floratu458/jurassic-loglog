@@ -27,6 +27,9 @@ $jurassic/formod nadir.ctl data/obs.tab data/atm.tab data/rad_cga.tab FORMOD 0
 # Compute kernel...
 $jurassic/kernel nadir.ctl data/obs.tab data/atm.tab data/kernel.tab
 
+# Test raytracer...
+$jurassic/raytrace nadir.ctl data/obs.tab data/atm.tab data/raytrace.tab LOSBASE data/los
+
 # Compare files...
 echo -e "\nCompare results..."
 error=0
