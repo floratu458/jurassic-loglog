@@ -22,7 +22,7 @@ $jurassic/filter - data/norton_beer_$nu.filt FILTER_TYPE 4 FILTER_CENTER $nu
 
 # Create table files...
 for filter in boxcar triangle gaussian sinc norton_beer ; do
-    $jurassic/tblgen 1000 285 data.ref/opt_01000.asc data/${filter}_$nu.filt > data/${filter}_${nu}_CO2.tab
+    $jurassic/tblgen 1000 285 opt_01000.asc data/${filter}_$nu.filt > data/${filter}_${nu}_CO2.tab
 done
 
 # Convert table files...
