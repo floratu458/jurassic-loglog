@@ -39,7 +39,18 @@ void call_formod(
   const char *obsfile,
   const char *atmfile,
   const char *radfile,
-  const char *task);
+  const char *task,
+  const char *obsref);
+
+/*! Calculate relative errors. */
+void compute_rel_errors(
+  const ctl_t * ctl,
+  const obs_t * obs_test,
+  const obs_t * obs_ref,
+  double *mre,
+  double *sdre,
+  double *minre,
+  double *maxre);
 
 /* ------------------------------------------------------------
    Main...
@@ -57,9 +68,6 @@ int main(
 
   /* Read control parameters... */
   read_ctl(argc, argv, &ctl);
-
-  /* Initialize look-up tables... */
-  tbl_t *tbl = read_tbl(&ctl);
 
 #ifdef UNIFIED
 
@@ -81,7 +89,10 @@ int main(
 
 #else
 
-  char dirlist[LEN], task[LEN];
+  char dirlist[LEN], obsref[LEN], task[LEN];
+
+  /* Initialize look-up tables... */
+  tbl_t *tbl = read_tbl(&ctl);
 
   /* Get task... */
   scan_ctl(argc, argv, "TASK", -1, "-", task);
@@ -89,9 +100,12 @@ int main(
   /* Get dirlist... */
   scan_ctl(argc, argv, "DIRLIST", -1, "-", dirlist);
 
+  /* Get reference data... */
+  scan_ctl(argc, argv, "OBSREF", -1, "-", obsref);
+
   /* Single forward calculation... */
   if (dirlist[0] == '-')
-    call_formod(&ctl, tbl, NULL, argv[2], argv[3], argv[4], task);
+    call_formod(&ctl, tbl, NULL, argv[2], argv[3], argv[4], task, obsref);
 
   /* Work on directory list... */
   else {
@@ -109,7 +123,7 @@ int main(
       LOG(1, "\nWorking directory: %s", wrkdir);
 
       /* Call forward model... */
-      call_formod(&ctl, tbl, wrkdir, argv[2], argv[3], argv[4], task);
+      call_formod(&ctl, tbl, wrkdir, argv[2], argv[3], argv[4], task, obsref);
     }
 
     /* Close dirlist... */
@@ -133,16 +147,17 @@ void call_formod(
   const char *obsfile,
   const char *atmfile,
   const char *radfile,
-  const char *task) {
+  const char *task,
+  const char *obsref) {
 
   static atm_t atm, atm2;
   static obs_t obs, obs2;
 
-  /* Read observation geometry... */
-  read_obs(wrkdir, obsfile, ctl, &obs);
-
   /* Read atmospheric data... */
   read_atm(wrkdir, atmfile, ctl, &atm);
+
+  /* Read observation geometry... */
+  read_obs(wrkdir, obsfile, ctl, &obs);
 
   /* Compute multiple profiles... */
   if (task[0] == 'p' || task[0] == 'P') {
@@ -204,7 +219,24 @@ void call_formod(
     /* Save radiance data... */
     write_obs(wrkdir, radfile, ctl, &obs);
 
-    /* Compute contributions... */
+    /* Evaluate results... */
+    if (obsref[0] != '-') {
+
+      /* Read reference data... */
+      read_obs(wrkdir, obsref, ctl, &obs2);
+
+      /* Calculate relative errors... */
+      double mre[ND], sdre[ND], minre[ND], maxre[ND];
+      compute_rel_errors(ctl, &obs, &obs2, mre, sdre, minre, maxre);
+
+      /* Write results... */
+      for (int id = 0; id < ctl->nd; id++)
+	printf
+	  ("EVAL: nu= %.4f cm^-1 | MRE= %g %% | SDRE= %g %% | MinRE= %g %% | MaxRE= %g %%\n",
+	   ctl->nu[id], mre[id], sdre[id], minre[id], maxre[id]);
+    }
+
+    /* Compute contributions of emitters... */
     if (task[0] == 'c' || task[0] == 'C') {
 
       char filename[LEN];
@@ -226,7 +258,7 @@ void call_formod(
 	  for (int ip = 0; ip < atm2.np; ip++)
 	    atm2.k[iw][ip] = 0;
 
-	/* Set volume mixing ratios to zero... */
+	/* Select emitter... */
 	for (int ig2 = 0; ig2 < ctl->ng; ig2++)
 	  if (ig2 != ig)
 	    for (int ip = 0; ip < atm2.np; ip++)
@@ -243,7 +275,7 @@ void call_formod(
       /* Copy atmospheric data... */
       copy_atm(ctl, &atm2, &atm, 0);
 
-      /* Set volume mixing ratios to zero... */
+      /* Set volume mixing ratios to zero, keep extinction... */
       for (int ig = 0; ig < ctl->ng; ig++)
 	for (int ip = 0; ip < atm2.np; ip++)
 	  atm2.q[ig][ip] = 0;
@@ -260,7 +292,7 @@ void call_formod(
     if (task[0] == 't' || task[0] == 'T') {
 
       /* Init... */
-      double t_min, t_max, t_mean = 0, t_sigma = 0;
+      double t_min, t_max, t_mean = 0, t_sd = 0;
       int n = 0;
 
       /* Initialize random number generator... */
@@ -278,10 +310,10 @@ void call_formod(
 	for (int ig = 0; ig < ctl->ng; ig++)
 	  dq[ig] = 0.8 + 0.4 * gsl_rng_uniform(rng);
 	for (int ip = 0; ip < atm2.np; ip++) {
-	  atm.t[ip] += dtemp;
-	  atm.p[ip] *= dpress;
+	  atm2.t[ip] += dtemp;
+	  atm2.p[ip] *= dpress;
 	  for (int ig = 0; ig < ctl->ng; ig++)
-	    atm.q[ig][ip] *= dq[ig];
+	    atm2.q[ig][ip] *= dq[ig];
 	}
 
 	/* Measure runtime... */
@@ -290,8 +322,8 @@ void call_formod(
 	double dt = omp_get_wtime() - t0;
 
 	/* Get runtime statistics... */
-	t_mean += (dt);
-	t_sigma += POW2(dt);
+	t_mean += dt;
+	t_sd += POW2(dt);
 	if (n == 0 || dt < t_min)
 	  t_min = dt;
 	if (n == 0 || dt > t_max)
@@ -302,15 +334,15 @@ void call_formod(
 
       /* Write results... */
       t_mean /= (double) n;
-      t_sigma = sqrt(t_sigma / (double) n - POW2(t_mean));
-      printf("RUNTIME_MEAN = %g s\n", t_mean);
-      printf("RUNTIME_SIGMA = %g s\n", t_sigma);
-      printf("RUNTIME_MIN = %g s\n", t_min);
-      printf("RUNTIME_MAX = %g s\n", t_max);
-      printf("RAYS_PER_SECOND = %g", (double) obs.nr / t_mean);
+      t_sd = sqrt(t_sd / (double) n - POW2(t_mean));
+      printf("RUNTIME: mean= %g s | stddev= %g s | min= %g s | max= %g s\n",
+	     t_mean, t_sd, t_min, t_max);
+
+      /* Free... */
+      gsl_rng_free(rng);
     }
 
-    /* Analyze effect of step size... */
+    /* Analyze impact of step size... */
     if (task[0] == 's' || task[0] == 'S') {
 
       /* Reference run... */
@@ -320,8 +352,7 @@ void call_formod(
       copy_obs(ctl, &obs2, &obs, 0);
 
       /* Loop over step size... */
-      for (double dz = 0.01; dz <= 2; dz *= 1.1) {
-	printf("STEPSIZE: \n");
+      for (double dz = 0.01; dz <= 2; dz *= 1.1)
 	for (double ds = 0.1; ds <= 50; ds *= 1.1) {
 
 	  /* Set step size... */
@@ -333,29 +364,66 @@ void call_formod(
 	  formod(ctl, tbl, &atm, &obs);
 	  double dt = omp_get_wtime() - t0;
 
-	  /* Get differences... */
-	  double mean[ND], sigma[ND];
-	  for (int id = 0; id < ctl->nd; id++) {
-	    mean[id] = sigma[id] = 0;
-	    int n = 0;
-	    for (int ir = 0; ir < obs.nr; ir++) {
-	      double err = 200. * (obs.rad[id][ir] - obs2.rad[id][ir])
-		/ (obs.rad[id][ir] + obs2.rad[id][ir]);
-	      mean[id] += err;
-	      sigma[id] += POW2(err);
-	      n++;
-	    }
-	    mean[id] /= n;
-	    sigma[id] = sqrt(sigma[id] / n - POW2(mean[id]));
-	  }
+	  /* Calculate relative errors... */
+	  double mre[ND], sdre[ND], minre[ND], maxre[ND];
+	  compute_rel_errors(ctl, &obs, &obs2, mre, sdre, minre, maxre);
 
 	  /* Write results... */
-	  printf("STEPSIZE: %g %g %g", ds, dz, dt);
-	  for (int id = 0; id < ctl->nd; id++)
-	    printf(" %g %g", mean[id], sigma[id]);
-	  printf("\n");
+	  for (int id = 0; id < ctl->nd; id++) {
+	    printf
+	      ("STEPSZE: nu= %.4f cm^-1 | ds= %.4f km | dz= %g km | t= %g s",
+	       ctl->nu[id], ds, dz, dt);
+	    printf
+	      (" MRE= %g %% | SDRE= %g %% | MinRE= %g %% | MaxRE= %g %%\n",
+	       mre[id], sdre[id], minre[id], maxre[id]);
+	  }
 	}
-      }
     }
+  }
+}
+
+/*****************************************************************************/
+
+void compute_rel_errors(
+  const ctl_t *ctl,
+  const obs_t *obs_test,
+  const obs_t *obs_ref,
+  double *mre,
+  double *sdre,
+  double *minre,
+  double *maxre) {
+
+  /* Loop over channels... */
+  for (int id = 0; id < ctl->nd; id++) {
+
+    double sum = 0, sum2 = 0;
+    minre[id] = +1e9;
+    maxre[id] = -1e9;
+    int n = 0;
+
+    /* Loop over ray paths... */
+    for (int ir = 0; ir < obs_test->nr; ir++) {
+
+      /* Check for zero... */
+      if (obs_ref->rad[id][ir] == 0)
+	continue;
+
+      /* Calculate relative error... */
+      double err = 100.0 * (obs_test->rad[id][ir] - obs_ref->rad[id][ir])
+	/ obs_ref->rad[id][ir];
+
+      /* Get statistics... */
+      sum += err;
+      sum2 += err * err;
+      if (err > maxre[id])
+	maxre[id] = err;
+      if (err < minre[id])
+	minre[id] = err;
+      n++;
+    }
+
+    /* Get mean and standard deviaton... */
+    mre[id] = sum / n;
+    sdre[id] = sqrt(sum2 / n - mre[id] * mre[id]);
   }
 }

@@ -19,13 +19,13 @@ $jurassic/climatology limb.ctl data/atm.tab
 $jurassic/limb limb.ctl data/obs.tab
 
 # Call forward model...
-$jurassic/formod limb.ctl data/obs.tab data/atm.tab data/rad.tab TASK time
+$jurassic/formod limb.ctl data/obs.tab data/atm.tab data/rad.tab OBSREF data.ref/rad.tab TASK time
 
 # Test CGA...
-$jurassic/formod limb.ctl data/obs.tab data/atm.tab data/rad_cga.tab FORMOD 0
+$jurassic/formod limb.ctl data/obs.tab data/atm.tab data/rad_cga.tab OBSREF data.ref/rad.tab FORMOD 0
 
 # Test FOV...
-$jurassic/formod limb.ctl data/obs.tab data/atm.tab data/rad_fov.tab FOV fov.tab
+$jurassic/formod limb.ctl data/obs.tab data/atm.tab data/rad_fov.tab OBSREF data.ref/rad.tab FOV fov.tab
 
 # Compute kernel...
 $jurassic/kernel limb.ctl data/obs.tab data/atm.tab data/kernel.tab

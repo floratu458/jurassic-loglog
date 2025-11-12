@@ -19,10 +19,10 @@ $jurassic/climatology nadir.ctl data/atm.tab
 $jurassic/nadir nadir.ctl data/obs.tab
 
 # Call forward model...
-$jurassic/formod nadir.ctl data/obs.tab data/atm.tab data/rad.tab TASK time
+$jurassic/formod nadir.ctl data/obs.tab data/atm.tab data/rad.tab OBSREF data.ref/rad.tab TASK time
 
 # CGA test...
-$jurassic/formod nadir.ctl data/obs.tab data/atm.tab data/rad_cga.tab FORMOD 0
+$jurassic/formod nadir.ctl data/obs.tab data/atm.tab data/rad_cga.tab OBSREF data.ref/rad.tab FORMOD 0
 
 # Compute kernel...
 $jurassic/kernel nadir.ctl data/obs.tab data/atm.tab data/kernel.tab
