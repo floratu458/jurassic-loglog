@@ -369,14 +369,11 @@ void call_formod(
 	  compute_rel_errors(ctl, &obs, &obs2, mre, sdre, minre, maxre);
 
 	  /* Write results... */
-	  for (int id = 0; id < ctl->nd; id++) {
+	  for (int id = 0; id < ctl->nd; id++)
 	    printf
-	      ("STEPSZE: nu= %.4f cm^-1 | ds= %.4f km | dz= %g km | t= %g s",
-	       ctl->nu[id], ds, dz, dt);
-	    printf
-	      (" MRE= %g %% | SDRE= %g %% | MinRE= %g %% | MaxRE= %g %%\n",
-	       mre[id], sdre[id], minre[id], maxre[id]);
-	  }
+	      ("STEPSIZE: ds= %.4f km | dz= %g km | t= %g s | nu= %.4f cm^-1"
+	       " | MRE= %g %% | SDRE= %g %% | MinRE= %g %% | MaxRE= %g %%\n",
+	       ds, dz, dt, ctl->nu[id], mre[id], sdre[id], minre[id], maxre[id]);
 	}
     }
   }
