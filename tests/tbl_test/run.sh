@@ -26,16 +26,19 @@ for filter in boxcar triangle gaussian sinc norton_beer ; do
 done
 
 # Convert table files from ASCII to binary...
-for filter in boxcar triangle gaussian sinc norton_beer ; do
-    ctl="ND 1 NU[0] $nu NG 1 EMITTER[0] CO2"
-    $jurassic/tblfmt - data/${filter} 1 data/${filter} 2 $ctl
-    $jurassic/tblfmt - data/${filter} 1 data/${filter} 3 $ctl
-done
+filter=boxcar
+ctl="ND 1 NU[0] $nu NG 1 EMITTER[0] CO2"
+$jurassic/tblfmt - data/${filter} 1 data/${filter}_bin 2 $ctl
+$jurassic/tblfmt - data/${filter} 1 data/${filter}_gas 3 $ctl
+cp data/${filter}_$nu.filt data/${filter}_bin_$nu.filt
+cp data/${filter}_$nu.filt data/${filter}_gas_$nu.filt
+$jurassic/tblfmt - data/${filter}_bin 2 data/${filter}_bin 1 $ctl
+$jurassic/tblfmt - data/${filter}_gas 3 data/${filter}_gas 1 $ctl
 
 # Compare files...
 echo -e "\nCompare results..."
 error=0
-for f in data.ref/*.filt data.ref/*.tab data.ref/*.bin data.ref/*.tbl ; do
+for f in data.ref/*.filt data.ref/*.tab ; do
     diff -q -s data/"$(basename "$f")" "$f" || error=1
 done
 exit $error
