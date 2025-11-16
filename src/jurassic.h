@@ -113,6 +113,7 @@
 #include <gsl/gsl_statistics.h>
 #include <math.h>
 #include <omp.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -316,6 +317,11 @@
 #define TBLNS 1200
 #endif
 
+/*! Maximum number of frequency-table entries allowed in a gas table file. */
+#ifndef MAX_TABLES
+#define MAX_TABLES 10000
+#endif
+
 /*! Maximum number of RFM spectral grid points. */
 #ifndef RFMNPTS
 #define RFMNPTS 10000000
@@ -373,8 +379,8 @@
  *
  * @author Lars Hoffmann
  */
-#define ALLOC(ptr, type, n) \
-  if((ptr=malloc((size_t)(n)*sizeof(type)))==NULL) \
+#define ALLOC(ptr, type, n)				 \
+  if((ptr=calloc((size_t)(n), sizeof(type)))==NULL)      \
     ERRMSG("Out of memory!");
 
 /**
@@ -1348,6 +1354,48 @@ typedef struct {
   double sr[TBLNS][ND];
 
 } tbl_t;
+
+/**
+ * @brief On-disk index entry describing one frequency table block in a gas file.
+ *
+ * Each entry maps a unique frequency value to a serialized block stored
+ * elsewhere in the file. All entries are stored in a fixed-size table of MAX_TABLES elements.
+ */
+typedef struct {
+
+  /*! Frequency identifier ν_j for this table block. */
+  double freq;
+
+  /*! Byte offset in file where the serialized block begins. */
+  int64_t offset;
+
+  /*! Size of the serialized block (in bytes). */
+  int64_t size;
+
+} tbl_gas_index_t;
+
+/**
+ * @brief In-memory representation of an open per-gas lookup-table file.
+ *
+ * This structure tracks the file pointer, the number of valid table entries,
+ * and the full in-memory index of MAX_TABLES elements. When table blocks
+ * are added or replaced, the index is marked dirty and rewritten on close.
+ */
+typedef struct {
+
+  /*! Open file handle ("rb+"), NULL if not open. */
+  FILE *fp;
+
+  /*! Number of index entries currently in use. */
+  int32_t ntables;
+
+  /*! In-memory index table of length MAX_TABLES. */
+  tbl_gas_index_t *index;
+
+  /**< Non-zero if index was modified and must be rewritten on close. */
+  int dirty;
+
+} tbl_gas_t;
 
 /* ------------------------------------------------------------
    Functions...
@@ -3122,57 +3170,190 @@ void read_shape(
   int *n);
 
 /**
- * @brief Read gas emissivity look-up tables for all channels and emitters.
+ * @brief Read all emissivity lookup tables for all gases and frequencies.
  *
- * Loads precomputed emissivity tables from disk into a newly allocated
- * @ref tbl_t structure. Each table contains gas emissivity data as a function
- * of pressure, temperature, and column density, required for radiative transfer
- * using the CGA (Curtis–Godson Approximation) or EGA (Emissivity Growth Approximation).
+ * This function allocates a new `tbl_t` structure and fills it by reading
+ * emissivity lookup tables for each trace gas (`ig`) and each frequency index
+ * (`id`) specified in the control structure. The lookup tables may be read
+ * from ASCII, binary, or per-gas table files depending on `ctl->tblfmt`.
  *
- * @param[in] ctl  Pointer to the control structure containing configuration
- *                 and table file parameters.
+ * After loading all tables, the source function is initialized with
+ * `init_srcfunc()`.
  *
- * @return Pointer to the allocated and initialized @ref tbl_t structure.
+ * @param ctl  Pointer to control structure containing table metadata,
+ *             number of gases, number of frequencies, filenames, etc.
  *
- * @details
- * - For each radiance channel (`id`) and each trace gas (`ig`), the routine
- *   attempts to open a table file named:
- *   ```
- *   <TBLBASE>_<NU>_<EMITTER>.<TAB/BIN>
- *   ```
- *   where:
- *   - `<TBLBASE>` is `ctl->tblbase`
- *   - `<NU>` is the channel wavenumber [cm⁻¹]
- *   - `<EMITTER>` is the gas name (e.g. "CO2", "H2O")
- *   - The extension is `.tab` for ASCII or `.bin` for binary format.
- * - The table format is selected via `ctl->tblfmt`:
- *   - **1** → ASCII tables (four columns: pressure, temperature, u, eps)
- *   - **2** → Binary tables written by JURASSIC’s preprocessing tools
- * - Data are stored in hierarchical arrays:
- *   @f$ \varepsilon(p, T, u) @f$ = emissivity  
- *   where `p` = pressure [hPa], `T` = temperature [K], `u` = column density [molec/cm²].
- * - Invalid or out-of-range entries (outside `[UMIN,UMAX]` or `[EPSMIN,EPSMAX]`)
- *   are skipped with a warning.
- * - The routine automatically counts levels in pressure, temperature, and column
- *   density dimensions, checking against limits `TBLNP`, `TBLNT`, and `TBLNU`.
- * - After loading all tables, it calls @ref init_srcfunc() to initialize the
- *   source function table.
+ * @return Pointer to a newly allocated `tbl_t` structure containing all
+ *         loaded lookup-table data. The caller owns the returned pointer
+ *         and must free it when done.
  *
- * @see init_srcfunc, intpol_tbl_cga, intpol_tbl_ega, ctl_t, tbl_t
- *
- * @warning
- * - Aborts if the number of levels exceeds compile-time limits (`TBLNP`, `TBLNT`, `TBLNU`).
- * - Emits warnings if emissivity or column density values are outside physical range.
- * - Missing tables are skipped with a warning.
- *
- * @note
- * Binary table reading uses `FREAD` macros to ensure platform-independent
- * precision and array sizes.
+ * @warning Aborts the program via `ERRMSG()` if unexpected table formats
+ *          or dimension overflows occur.
  *
  * @author Lars Hoffmann
  */
 tbl_t *read_tbl(
   const ctl_t * ctl);
+
+/**
+ * @brief Read a single ASCII emissivity lookup table.
+ *
+ * This reads one ASCII table corresponding to frequency index @p id
+ * and gas index @p ig. The table format is:
+ *
+ *     pressure   temperature   column_density   emissivity
+ *
+ * The function automatically determines the pressure, temperature,
+ * and column-density indices based on new values appearing in the file.
+ *
+ * Out-of-range values for `u` or `eps` are skipped and counted.
+ *
+ * @param ctl  Pointer to control structure specifying filenames and grids.
+ * @param tbl  Pointer to the table structure to be filled.
+ * @param id   Frequency index.
+ * @param ig   Gas index.
+ *
+ * @warning Aborts via `ERRMSG()` if table dimensions exceed TBLNP/TBLNT/TBLNU.
+ *
+ * @author
+ * Lars Hoffmann
+ */
+void read_tbl_asc(
+  const ctl_t * ctl,
+  tbl_t * tbl,
+  const int id,
+  const int ig);
+
+/**
+ * @brief Read a single binary emissivity lookup table.
+ *
+ * Reads the binary table stored as:
+ *   - number of pressure levels
+ *   - pressure grid
+ *   - for each pressure:
+ *       - number of temperatures
+ *       - temperature grid
+ *       - for each temperature:
+ *           - number of column densities
+ *           - u array
+ *           - emissivity array
+ *
+ * The function fills the corresponding entries of the `tbl_t` structure.
+ *
+ * @param ctl  Pointer to control structure specifying filenames and grids.
+ * @param tbl  Pointer to the table structure to be filled.
+ * @param id   Frequency index.
+ * @param ig   Gas index.
+ *
+ * @warning Aborts via `ERRMSG()` if table dimensions exceed TBLNP/TBLNT/TBLNU.
+ *
+ * @author
+ * Lars Hoffmann
+ */
+void read_tbl_bin(
+  const ctl_t * ctl,
+  tbl_t * tbl,
+  const int id,
+  const int ig);
+
+/**
+ * @brief Read one frequency block from a per-gas binary table file.
+ *
+ * Opens the gas-specific table file (e.g., `base_emitter.tbl`) and
+ * reads the table block corresponding to frequency `ctl->nu[id]`.
+ * The block is appended to the in-memory `tbl_t`.
+ *
+ * @param ctl  Pointer to control structure containing table metadata.
+ * @param tbl  Pointer to table structure to populate.
+ * @param id   Frequency index.
+ * @param ig   Gas index.
+ *
+ * @note Missing tables or missing frequency blocks only produce warnings.
+ *
+ * @author
+ * Lars Hoffmann
+ */
+void read_tbl_gas(
+  const ctl_t * ctl,
+  tbl_t * tbl,
+  const int id,
+  const int ig);
+
+/**
+ * @brief Close a per-gas binary table file and optionally rewrite metadata.
+ *
+ * If the table was modified (`g->dirty != 0`), the header and index are
+ * rewritten before closing the file. After closing, memory associated
+ * with the table index is freed.
+ *
+ * @param g  Pointer to an open gas-table handle.
+ *
+ * @return 0 on success, -1 on invalid handle.
+ *
+ * @author
+ * Lars Hoffmann
+ */
+int read_tbl_gas_close(
+  tbl_gas_t * g);
+
+/**
+ * @brief Open a per-gas binary table file for reading and writing.
+ *
+ * Reads and validates the file header, then loads the entire index
+ * of table blocks. The resulting `tbl_gas_t` structure tracks the
+ * file pointer, index, and table count.
+ *
+ * @param path  Path to the `.tbl` file.
+ * @param g     Output parameter: populated table-file handle.
+ *
+ * @return 0 on success, -1 if the file cannot be opened.
+ *
+ * @warning Aborts via `ERRMSG()` on invalid magic or format.
+ *
+ * @author
+ * Lars Hoffmann
+ */
+int read_tbl_gas_open(
+  const char *path,
+  tbl_gas_t * g);
+
+/**
+ * @brief Read one emissivity table block from a per-gas table file.
+ *
+ * Locates the index entry corresponding to the requested frequency @p freq.
+ * If found, seeks to the stored offset and reads:
+ *
+ *   - number of pressure levels
+ *   - pressure grid
+ *   - for each pressure:
+ *       - number of temperatures
+ *       - temperature grid
+ *       - for each temperature:
+ *           - number of column densities
+ *           - u array
+ *           - emissivity array
+ *
+ * The data are stored into `tbl[id][ig]`.
+ *
+ * @param g     Pointer to an open gas-table handle.
+ * @param freq  Frequency to be read.
+ * @param tbl   Pointer to output table structure.
+ * @param id    Frequency index.
+ * @param ig    Gas index.
+ *
+ * @return 0 on success, -1 if the frequency is not found.
+ *
+ * @warning Aborts on dimension overflow or seek errors.
+ *
+ * @author
+ * Lars Hoffmann
+ */
+int read_tbl_gas_single(
+  tbl_gas_t * g,
+  double freq,
+  tbl_t * tbl,
+  int id,
+  int ig);
 
 /**
  * @brief Scan control file or command-line arguments for a configuration variable.
@@ -3992,73 +4173,20 @@ void write_stddev(
   gsl_matrix * s);
 
 /**
- * @brief Write emissivity look-up tables to disk (ASCII or binary format).
+ * @brief Write all emissivity lookup tables in the format specified by the control structure.
  *
- * Exports precomputed emissivity tables for all combinations of emitters
- * and detector channels defined in the control structure. Each table
- * contains emissivity values parameterized by pressure, temperature,
- * and column density.
+ * This function dispatches to one of three table writers depending on
+ * `ctl->tblfmt`:
  *
- * @param[in] ctl  Pointer to control structure defining emitters, channels,
- *                 table format, and base file name.
- * @param[in] tbl  Pointer to emissivity table data structure to be written.
+ *   - `1`: ASCII tables written by write_tbl_asc()
+ *   - `2`: Binary tables written by write_tbl_bin()
+ *   - `3`: Per-gas binary tables written by write_tbl_gas()
  *
- * @details
- * - The function writes one file per emitter–channel pair:
- *   ```
- *   <TBLBASE>_<WAVENUMBER>_<EMITTER>.<EXT>
- *   ```
- *   where `<EXT>` = `"tab"` for ASCII format or `"bin"` for binary format.
- * - The ASCII format (`TBLFMT = 1`) includes a human-readable header and
- *   four columns:
- *   ```
- *   # $1 = pressure [hPa]
- *   # $2 = temperature [K]
- *   # $3 = column density [molecules/cm^2]
- *   # $4 = emissivity [-]
- *   ```
- *   Each pressure–temperature block is separated by a blank line.
- * - The binary format (`TBLFMT = 2`) stores the same data compactly using
- *   nested arrays of type `int`, `double`, and `float` for efficient reading
- *   by `read_tbl()`.
+ * If an unknown format is given, the function aborts via ERRMSG().
  *
- * @see read_tbl, init_srcfunc
- *
- * @note
- * - Emissivity tables are used in the **Emissivity Growth Approximation (EGA)**
- *   to accelerate radiative transfer computations.
- * - The control structure field `ctl->tblbase` defines the output prefix.
- * - The number of emitters and detectors is determined by `ctl->ng` and `ctl->nd`.
- * - ASCII tables are convenient for inspection; binary tables are faster
- *   to load in production mode.
- *
- * @warning
- * - Existing files with matching names will be overwritten without prompt.
- * - Ensure that the table dimensions (`TBLNP`, `TBLNT`, `TBLNU`) are within
- *   array bounds defined at compile time.
- * - The routine aborts with an error if `ctl->tblfmt` is not 1 or 2.
- *
- * @example
- * Example ASCII emissivity table (`CO2_667.75.tab`):
- * @code
- * # $1 = pressure [hPa]
- * # $2 = temperature [K]
- * # $3 = column density [molecules/cm^2]
- * # $4 = emissivity [-]
- *
- * 1013.25 220.0 1.0e19 0.00231
- * 1013.25 220.0 5.0e19 0.01084
- *
- * 1013.25 240.0 1.0e19 0.00289
- * 1013.25 240.0 5.0e19 0.01147
- * @endcode
- *
- * @example
- * Binary mode usage (compact format):
- * @code
- * ctl->tblfmt = 2;
- * write_tbl(ctl, tbl);
- * @endcode
+ * @param ctl  Control structure specifying table format, filenames,
+ *             number of gases, number of frequencies, etc.
+ * @param tbl  Fully populated lookup-table structure to be written.
  *
  * @author
  * Lars Hoffmann
@@ -4066,6 +4194,160 @@ void write_stddev(
 void write_tbl(
   const ctl_t * ctl,
   const tbl_t * tbl);
+
+/**
+ * @brief Write all lookup tables in human-readable ASCII format.
+ *
+ * For every gas index (`ig`) and frequency index (`id`), the function
+ * generates a file of the form:
+ *
+ *     <base>_<nu[id]>_<emitter[ig]>.tab
+ *
+ * The ASCII file contains four columns:
+ *
+ *     1. pressure [hPa]
+ *     2. temperature [K]
+ *     3. column density [molecules/cm²]
+ *     4. emissivity [-]
+ *
+ * Table dimensions are taken from the `tbl_t` structure.  
+ * Missing files cause the program to abort via ERRMSG().
+ *
+ * @param ctl  Control structure providing grid metadata and filename base.
+ * @param tbl  Table data to be written.
+ *
+ * @author
+ * Lars Hoffmann
+ */
+void write_tbl_asc(
+  const ctl_t * ctl,
+  const tbl_t * tbl);
+
+/**
+ * @brief Write all lookup tables in compact binary format.
+ *
+ * For each gas index (`ig`) and frequency index (`id`), a binary file named
+ *
+ *     <base>_<nu[id]>_<emitter[ig]>.bin
+ *
+ * is created. The format is:
+ *
+ *   - int     np                      (number of pressure levels)
+ *   - double  p[np]
+ *   - for each pressure:
+ *       - int     nt                  (number of temperature levels)
+ *       - double  t[nt]
+ *       - for each temperature:
+ *           - int     nu              (number of column-density points)
+ *           - float   u[nu]
+ *           - float   eps[nu]
+ *
+ * @param ctl  Control structure containing filename base and spectral grid.
+ * @param tbl  Table data to be serialized.
+ *
+ * @author
+ * Lars Hoffmann
+ */
+void write_tbl_bin(
+  const ctl_t * ctl,
+  const tbl_t * tbl);
+
+/**
+ * @brief Write lookup tables into per-gas binary table files with indexed blocks.
+ *
+ * This function creates (if necessary) and updates gas-specific files of the form:
+ *
+ *     <base>_<emitter>.tbl
+ *
+ * Each file contains:
+ *
+ *   - A header ("GTL1")
+ *   - A table count (ntables)
+ *   - A fixed-size index of MAX_TABLES entries
+ *   - One or more appended binary table blocks
+ *
+ * For each frequency index (`id`), a block is appended (or overwritten) using
+ * write_tbl_gas_single(), which stores both the serialized table and its
+ * offset/size in the on-disk index.
+ *
+ * @param ctl  Control structure containing spectral grid, emitters, and filenames.
+ * @param tbl  Table data from which individual frequency blocks are extracted.
+ *
+ * @warning The file must have capacity for all required frequency entries
+ *          (MAX_TABLES). Exceeding this capacity triggers a fatal error.
+ *
+ * @author
+ * Lars Hoffmann
+ */
+void write_tbl_gas(
+  const ctl_t * ctl,
+  const tbl_t * tbl);
+
+/**
+ * @brief Create a new per-gas table file with an empty index.
+ *
+ * Writes the “GTL1” magic header, initializes the table count to zero,
+ * and creates a MAX_TABLES-sized index whose entries are zeroed.
+ *
+ * The resulting file layout is:
+ *
+ *     magic[4] = "GTL1"
+ *     ntables  = 0
+ *     index[MAX_TABLES]  (all zero)
+ *
+ * @param path  Path to the table file to create.
+ *
+ * @return 0 on success, -1 if the file cannot be opened.
+ *
+ * @author
+ * Lars Hoffmann
+ */
+int write_tbl_gas_create(
+  const char *path);
+
+/**
+ * @brief Append or overwrite a single frequency-table block in a per-gas file.
+ *
+ * Searches the in-memory index for an entry matching @p freq. If found, the
+ * corresponding block is updated. Otherwise a new entry is created (subject
+ * to the MAX_TABLES limit) and the block is appended to the end of the file.
+ *
+ * The block format written is identical to the binary format used in write_tbl_bin():
+ *
+ *   - int     np
+ *   - double  p[np]
+ *   - for each pressure:
+ *       - int     nt
+ *       - double  t[nt]
+ *       - for each temperature:
+ *           - int     nu
+ *           - float   u[nu]
+ *           - float   eps[nu]
+ *
+ * The index entry is then updated with:
+ *   - freq
+ *   - offset (byte offset of the block)
+ *   - size   (block size in bytes)
+ *
+ * @param g     Open gas-table handle obtained from read_tbl_gas_open().
+ * @param freq  Frequency associated with the table block.
+ * @param tbl   Full lookup table from which one block is extracted.
+ * @param id    Frequency index into tbl.
+ * @param ig    Gas index into tbl.
+ *
+ * @return 0 on success, non-zero on write failure.
+ *
+ * @warning Aborts via ERRMSG() if MAX_TABLES is exceeded or file seek fails.
+ *
+ * @author
+ * Lars Hoffmann
+ */
+int write_tbl_gas_single(
+  tbl_gas_t * g,
+  double freq,
+  const tbl_t * tbl,
+  int id,
+  int ig);
 
 /**
  * @brief Map retrieval state vector back to atmospheric structure.

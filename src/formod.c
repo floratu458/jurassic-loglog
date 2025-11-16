@@ -373,7 +373,8 @@ void call_formod(
 	    printf
 	      ("STEPSIZE: ds= %.4f km | dz= %g km | t= %g s | nu= %.4f cm^-1"
 	       " | MRE= %g %% | SDRE= %g %% | MinRE= %g %% | MaxRE= %g %%\n",
-	       ds, dz, dt, ctl->nu[id], mre[id], sdre[id], minre[id], maxre[id]);
+	       ds, dz, dt, ctl->nu[id], mre[id], sdre[id], minre[id],
+	       maxre[id]);
 	}
     }
   }
