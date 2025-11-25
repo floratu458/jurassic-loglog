@@ -3311,7 +3311,7 @@ int read_tbl_gas_single(
  *
  * @details
  * - The routine first attempts to open the control file provided as the first
- *   command-line argument (`argv[1]`), unless it starts with `'-'`.
+ *   command-line argument (`argv[1]`), unless it starts with '-'.
  * - Variable names may appear as either:
  *   - `VAR` (scalar)
  *   - `VAR[index]` (explicit array index)
@@ -3334,7 +3334,7 @@ int read_tbl_gas_single(
  * @see read_ctl, LOG, ERRMSG
  *
  * @warning
- * - Aborts if the control file cannot be opened (unless skipped with `'-'`).
+ * - Aborts if the control file cannot be opened (unless skipped with '-').
  * - Aborts if a required variable is missing and no default is provided.
  * - Array bounds are not validated against internal limits; use `ctl_t` checks
  *   to ensure consistency.
