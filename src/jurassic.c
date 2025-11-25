@@ -27,12 +27,12 @@
 /*****************************************************************************/
 
 void analyze_avk(
-  ret_t *ret,
-  ctl_t *ctl,
-  atm_t *atm,
-  int *iqa,
-  int *ipa,
-  gsl_matrix *avk) {
+  const ret_t *ret,
+  const ctl_t *ctl,
+  const atm_t *atm,
+  const int *iqa,
+  const int *ipa,
+  const gsl_matrix *avk) {
 
   static atm_t atm_cont, atm_res;
 
@@ -84,11 +84,11 @@ void analyze_avk(
 /*****************************************************************************/
 
 void analyze_avk_quantity(
-  gsl_matrix *avk,
-  int iq,
-  int *ipa,
-  size_t *n0,
-  size_t *n1,
+  const gsl_matrix *avk,
+  const int iq,
+  const int *ipa,
+  const size_t *n0,
+  const size_t *n1,
   double *cont,
   double *res) {
 
@@ -1177,10 +1177,10 @@ double cos_sza(
 /*****************************************************************************/
 
 double cost_function(
-  gsl_vector *dx,
-  gsl_vector *dy,
-  gsl_matrix *s_a_inv,
-  gsl_vector *sig_eps_inv) {
+  const gsl_vector *dx,
+  const gsl_vector *dy,
+  const gsl_matrix *s_a_inv,
+  const gsl_vector *sig_eps_inv) {
 
   double chisq_a, chisq_m = 0;
 
@@ -4266,7 +4266,7 @@ void jsec2time(
   t0.tm_min = 0;
   t0.tm_sec = 0;
 
-  time_t jsec0 = (time_t) jsec + timegm(&t0);
+  const time_t jsec0 = (time_t) jsec + timegm(&t0);
   t1 = gmtime(&jsec0);
 
   *year = t1->tm_year + 1900;
@@ -4477,9 +4477,9 @@ void matrix_invert(
 /*****************************************************************************/
 
 void matrix_product(
-  gsl_matrix *a,
-  gsl_vector *b,
-  int transpose,
+  const gsl_matrix *a,
+  const gsl_vector *b,
+  const int transpose,
   gsl_matrix *c) {
 
   /* Set sizes... */
@@ -5144,9 +5144,9 @@ void read_obs(
 double read_obs_rfm(
   const char *basename,
   const double z,
-  double *nu,
-  double *f,
-  int n) {
+  const double *nu,
+  const double *f,
+  const int n) {
 
   FILE *in;
 
@@ -5202,7 +5202,7 @@ double read_obs_rfm(
 void read_ret(
   int argc,
   char *argv[],
-  ctl_t *ctl,
+  const ctl_t *ctl,
   ret_t *ret) {
 
   /* Iteration control... */
@@ -5658,11 +5658,11 @@ int read_tbl_gas_open(
 /*****************************************************************************/
 
 int read_tbl_gas_single(
-  tbl_gas_t *g,
-  double freq,
+  const tbl_gas_t *g,
+  const double freq,
   tbl_t *tbl,
-  int id,
-  int ig) {
+  const int id,
+  const int ig) {
 
   /* Find freq in index */
   int idx = -1;
@@ -5805,11 +5805,11 @@ double scan_ctl(
 /*****************************************************************************/
 
 void set_cov_apr(
-  ret_t *ret,
-  ctl_t *ctl,
-  atm_t *atm,
-  int *iqa,
-  int *ipa,
+  const ret_t *ret,
+  const ctl_t *ctl,
+  const atm_t *atm,
+  const int *iqa,
+  const int *ipa,
   gsl_matrix *s_a) {
 
   /* Get sizes... */
@@ -5916,9 +5916,9 @@ void set_cov_apr(
 /*****************************************************************************/
 
 void set_cov_meas(
-  ret_t *ret,
-  ctl_t *ctl,
-  obs_t *obs,
+  const ret_t *ret,
+  const ctl_t *ctl,
+  const obs_t *obs,
   gsl_vector *sig_noise,
   gsl_vector *sig_formod,
   gsl_vector *sig_eps_inv) {
@@ -6547,10 +6547,10 @@ void write_shape(
 
 void write_stddev(
   const char *quantity,
-  ret_t *ret,
-  ctl_t *ctl,
-  atm_t *atm,
-  gsl_matrix *s) {
+  const ret_t *ret,
+  const ctl_t *ctl,
+  const atm_t *atm,
+  const gsl_matrix *s) {
 
   static atm_t atm_aux;
 
@@ -6774,10 +6774,11 @@ int write_tbl_gas_create(
 
 int write_tbl_gas_single(
   tbl_gas_t *g,
-  double freq,
+  const double freq,
   const tbl_t *tbl,
-  int id,
-  int ig) {
+  const int id,
+  const int ig) {
+
   int idx = -1;
 
   /* Check if a table for this frequency already exists... */
