@@ -399,8 +399,8 @@
  * @see PLANCK, C1, C2
  *
  * @note Based on Planck’s law in wavenumber form:
- *       \f$ T_b = \frac{c_2 \nu}{\ln(1 + \frac{c_1 \nu^3}{L_\nu})} \f$
- *       where \( L_\nu \) is radiance.
+ *       \f$ T_b = \frac{c_2 \nu}{\ln\!\left(1 + \frac{c_1 \nu^3}{L_\nu}\right)} \f$
+ *       where \f$L_\nu\f$ is the radiance.
  *
  * @author Lars Hoffmann
  */
@@ -1444,22 +1444,10 @@ typedef struct {
  * - Cloud and surface quantities are treated as scalar elements.
  * - Output files are written to the retrieval working directory (`ret->dir`).
  *
- * @example
- * @code
- * gsl_matrix *A = gsl_matrix_alloc(n, n);
- * // ... compute averaging kernel ...
- * analyze_avk(&ret, &ctl, &atm, iqa, ipa, A);
- * // Creates atm_cont.tab and atm_res.tab for diagnostics
- * @endcode
- *
  * @warning
  * - The averaging kernel must be fully computed and dimensionally consistent
  *   with the state vector before calling this function.
  * - File writing will overwrite existing diagnostics in `ret->dir`.
- *
- * @references
- * Rodgers, C. D. (2000). *Inverse Methods for Atmospheric Sounding:
- * Theory and Practice.* World Scientific.
  *
  * @author
  * Lars Hoffmann
@@ -1519,20 +1507,10 @@ void analyze_avk(
  * - The contribution and resolution arrays must be preallocated to at least
  *   the number of atmospheric grid points (`atm->np`).
  *
- * @example
- * @code
- * analyze_avk_quantity(A, IDXT, ipa, n0, n1, atm_cont.t, atm_res.t);
- * // Computes contribution and resolution profiles for temperature
- * @endcode
- *
  * @warning
  * - If the diagonal element `A_ii` is zero or near-zero, the corresponding
  *   resolution value may be undefined or numerically unstable.
  * - Input indices `n0[iq]` and `n1[iq]` must have been computed by `analyze_avk()`.
- *
- * @references
- * Rodgers, C. D. (2000). *Inverse Methods for Atmospheric Sounding:
- * Theory and Practice.* World Scientific.
  *
  * @author
  * Lars Hoffmann
@@ -1646,7 +1624,7 @@ void cart2geo(
  */
 void climatology(
   const ctl_t * ctl,
-  atm_t * atm_mean);
+  atm_t * atm);
 
 /**
  * @brief Calculates the cosine of the solar zenith angle.
@@ -1713,16 +1691,6 @@ double cos_sza(
  * - The covariance matrices must be positive-definite and properly dimensioned.
  * - The function does **not** modify the input vectors.
  *
- * @example
- * @code
- * double J = cost_function(dx, dy, S_a_inv, sig_eps_inv);
- * printf("Cost function: %.6f\n", J);
- * @endcode
- *
- * @references
- * Rodgers, C. D. (2000). *Inverse Methods for Atmospheric Sounding:
- * Theory and Practice.* World Scientific Publishing.
- *
  * @author
  * Lars Hoffmann
  */
@@ -1779,7 +1747,8 @@ double ctmh2o(
  *
  * @see locate_reg, LIN, P0, N2
  *
- * @cite Lafferty et al., J. Quant. Spectrosc. Radiat. Transf., 68, 473–479 (2001)
+ * @par Reference
+ *   Lafferty et al., J. Quant. Spectrosc. Radiat. Transf., 68, 473–479 (2001)
  *
  * @author Lars Hoffmann
  */
@@ -1811,8 +1780,9 @@ double ctmn2(
  *
  * @see locate_reg, LIN, P0, O2
  *
- * @cite Greenblatt et al., J. Quant. Spectrosc. Radiat. Transf., 33, 127–140 (1985)
- * @cite Smith and Newnham, Appl. Opt., 39, 318–326 (2000)
+ * @par References
+ *   Greenblatt et al., J. Quant. Spectrosc. Radiat. Transf., 33, 127–140 (1985)
+ *   Smith and Newnham, Appl. Opt., 39, 318–326 (2000)
  *
  * @author Lars Hoffmann
  */
@@ -2060,7 +2030,8 @@ void formod_pencil(
  *
  * @warning Requires external RFM binary; ensure @ref ctl_t::rfmbin is set.
  *
- * @cite Dudhia, A., "The Reference Forward Model (RFM)", JQSRT 186, 243–253 (2017)
+ * @par Reference
+ *   Dudhia, A., "The Reference Forward Model (RFM)", JQSRT 186, 243–253 (2017)
  *
  * @author Lars Hoffmann
  */
@@ -2629,13 +2600,6 @@ int locate_tbl(
  *   may result in numerical instability or GSL errors.
  * - Diagonal detection assumes exact zeros for off-diagonal elements.
  *
- * @example
- * @code
- * gsl_matrix *A = gsl_matrix_alloc(3, 3);
- * // Fill A with covariance matrix elements...
- * matrix_invert(A);  // A now holds the inverse
- * @endcode
- *
  * @warning
  * For ill-conditioned matrices, consider using singular value decomposition (SVD)
  * or regularization methods instead of direct inversion.
@@ -2683,23 +2647,9 @@ void matrix_invert(
  * - The output matrix \f$\mathbf{C}\f$ must be pre-allocated to the correct size.
  * - No symmetry enforcement or normalization is applied.
  *
- * @example
- * @code
- * gsl_matrix *A = gsl_matrix_alloc(m, n);
- * gsl_vector *B = gsl_vector_alloc(m);
- * gsl_matrix *C = gsl_matrix_alloc(n, n);
- *
- * // Compute C = Aᵀ B A
- * matrix_product(A, B, 1, C);
- * @endcode
- *
  * @warning
  * - If `transpose` is not 1 or 2, the function performs no operation.
  * - Numerical stability depends on the conditioning of A and the scaling of B.
- *
- * @references
- * Rodgers, C. D. (2000). *Inverse Methods for Atmospheric Sounding:
- * Theory and Practice.* World Scientific.
  *
  * @author
  * Lars Hoffmann
@@ -3058,22 +3008,9 @@ double read_obs_rfm(
  * - Default values are used when a parameter is not explicitly defined.
  * - Correlation lengths of `-999` indicate uncorrelated (diagonal) treatment.
  *
- * @example
- * @code
- * ctl_t ctl;
- * ret_t ret;
- * read_ctl(argc, argv, &ctl);
- * read_ret(argc, argv, &ctl, &ret);
- * // ret now contains all retrieval and error parameters
- * @endcode
- *
  * @warning
  * - Input validation is minimal; ensure consistency between `ctl` and `ret` dimensions.
  * - Missing mandatory parameters trigger runtime errors.
- *
- * @references
- * Rodgers, C. D. (2000). *Inverse Methods for Atmospheric Sounding:
- * Theory and Practice.* World Scientific.
  *
  * @author
  * Lars Hoffmann
@@ -3381,14 +3318,14 @@ int read_tbl_gas_single(
  *   - `VAR[*]` (wildcard entry applying to all indices)
  * - The search order is:
  *   1. Control file lines of the form:
- *      ```
+ *      @code
  *      VAR[index] = VALUE
  *      VAR[*]     = VALUE
- *      ```
+ *      @endcode
  *   2. Command-line arguments:
- *      ```
+ *      @code
  *      ./jurassic ctlfile VAR[index] VALUE
- *      ```
+ *      @endcode
  * - If no match is found:
  *   - The default value `defvalue` is used (if non-empty).
  *   - Otherwise, the routine aborts with an error.
@@ -3406,17 +3343,6 @@ int read_tbl_gas_single(
  * - This utility simplifies control input parsing by supporting both command-line
  *   overrides and configuration files with the same syntax.
  * - String comparisons are case-insensitive.
- *
- * @example
- * ```text
- * EMITTER[0] = CO2
- * EMITTER[1] = H2O
- * NU[0] = 667.0
- * ```
- * or equivalently:
- * ```bash
- * ./jurassic config.ctl NU[0] 667.0
- * ```
  *
  * @author
  * Lars Hoffmann
@@ -3475,21 +3401,10 @@ double scan_ctl(
  *   - Extinction: `err_k_cz[]`, `err_k_ch[]`
  * - Cloud and surface parameters are assumed uncorrelated (diagonal only).
  *
- * @example
- * @code
- * gsl_matrix *Sa = gsl_matrix_alloc(n, n);
- * set_cov_apr(&ret, &ctl, &atm, iqa, ipa, Sa);
- * // Sa now contains the full a priori covariance matrix
- * @endcode
- *
  * @warning
  * - A zero or negative variance triggers a runtime error.
  * - The matrix is constructed in full (dense), which may be large for
  *   high-resolution retrieval grids.
- *
- * @references
- * Rodgers, C. D. (2000). *Inverse Methods for Atmospheric Sounding:
- * Theory and Practice.* World Scientific.
  *
  * @author
  * Lars Hoffmann
@@ -3549,23 +3464,9 @@ void set_cov_apr(
  *   - Brightness temperature: [K]
  * - The forward model error is always relative, expressed in percent (%).
  *
- * @example
- * @code
- * gsl_vector *sig_noise  = gsl_vector_alloc(m);
- * gsl_vector *sig_formod = gsl_vector_alloc(m);
- * gsl_vector *sig_eps_inv = gsl_vector_alloc(m);
- *
- * set_cov_meas(&ret, &ctl, &obs, sig_noise, sig_formod, sig_eps_inv);
- * // sig_eps_inv can now be used to weight residuals in cost function
- * @endcode
- *
  * @warning
  * - A zero or negative uncertainty triggers a runtime error.
  * - Assumes `obs` and `ctl` are consistent in dimension and indexing.
- *
- * @references
- * Rodgers, C. D. (2000). *Inverse Methods for Atmospheric Sounding:
- * Theory and Practice.* World Scientific.
  *
  * @author
  * Lars Hoffmann
@@ -3726,12 +3627,6 @@ void time2jsec(
  *   and written to the log via the @ref LOG macro.
  * - Supports nested timers (up to 10 levels). Exceeding this limit
  *   triggers a runtime error via @ref ERRMSG.
- * - Typical usage macros wrap this routine, for example:
- *   @code
- *   TIMER_START("Forward Model");
- *   formod(ctl, tbl, atm, obs);
- *   TIMER_STOP("Forward Model");
- *   @endcode
  *
  * @see LOG, ERRMSG, omp_get_wtime
  *
@@ -3743,11 +3638,6 @@ void time2jsec(
  * @warning
  * - Exceeding 10 nested timers results in an error.
  * - Calling `mode == 2` or `3` without a prior start causes an internal error.
- *
- * @example
- * ```text
- * Timer 'Forward Model' (formod.c, formod, l120-175): 0.238 sec
- * ```
  *
  * @author
  * Lars Hoffmann
@@ -3798,20 +3688,6 @@ void timer(
  * - The output file is overwritten if it already exists.
  * - The number of data points must not exceed the maximum defined by `NP`.
  *
- * @example
- * Example header and data:
- * @code
- * # $1 = time (seconds since 2000-01-01T00:00Z)
- * # $2 = altitude [km]
- * # $3 = longitude [deg]
- * # $4 = latitude [deg]
- * # $5 = pressure [hPa]
- * # $6 = temperature [K]
- * # $7 = H2O volume mixing ratio [ppv]
- * # $8 = extinction (window 0) [km^-1]
- * 0.00 0.0 0.0 0.0 1013.25 288.15 0.01 0.0001
- * @endcode
- *
  * @author
  * Lars Hoffmann
  */
@@ -3835,7 +3711,7 @@ void write_atm(
  *
  * @details
  * - Produces a plain-text RFM atmosphere file with the following sections:
- *   ```
+ *   @code
  *   NLAYERS
  *   *HGT [km]
  *   <altitude_1>
@@ -3850,7 +3726,7 @@ void write_atm(
  *   <mixing_ratio_1>
  *   ...
  *   *END
- *   ```
+ *   @endcode
  * - The first line specifies the number of vertical layers (`atm->np`).
  * - Each subsequent block begins with a keyword (e.g., `*HGT`, `*PRE`, etc.)
  *   and lists one value per line.
@@ -3869,29 +3745,6 @@ void write_atm(
  * @warning
  * - Existing files with the same name will be overwritten.
  * - The function assumes consistent vertical ordering (surface → top of atmosphere).
- *
- * @example
- * Example output:
- * @code
- * 3
- * *HGT [km]
- * 0
- * 5
- * 10
- * *PRE [mb]
- * 1013.25
- * 540.0
- * 260.0
- * *TEM [K]
- * 288.0
- * 270.0
- * 240.0
- * *CO2 [ppmv]
- * 400.0
- * 400.0
- * 400.0
- * *END
- * @endcode
  *
  * @author
  * Lars Hoffmann
@@ -3920,9 +3773,9 @@ void write_atm_rfm(
  *
  * @details
  * - This routine writes one matrix element per line, including descriptive metadata:
- *   ```
+ *   @code
  *   RowIndex RowMeta... ColIndex ColMeta... MatrixValue
- *   ```
+ *   @endcode
  * - The row and column metadata differ depending on space selection:
  *   - **Measurement space (`'y'`)**:
  *     - Channel wavenumber [cm⁻¹]
@@ -3945,20 +3798,6 @@ void write_atm_rfm(
  * - Large matrices may produce very large output files.
  * - Memory allocation is performed for temporary indexing arrays; ensure sufficient resources for large N, M.
  * - The function overwrites existing files without confirmation.
- *
- * @example
- * Example excerpt (measurement-to-state Jacobian):
- * @code
- * # $1 = Row: index (measurement space)
- * # $2 = Row: channel wavenumber [cm^-1]
- * # $3 = Row: time (seconds since 2000-01-01T00:00Z)
- * # ...
- * # $13 = Matrix element
- *
- * 0 667.75 0.00 10.0 0.0 0.0  12 TEMPERATURE 0.00 8.5 0.0 0.0  1.47e-05
- * 0 667.75 0.00 10.0 0.0 0.0  13 H2O 0.00 8.5 0.0 0.0  3.25e-07
- * ...
- * @endcode
  *
  * @author
  * Lars Hoffmann
@@ -3995,7 +3834,7 @@ void write_matrix(
  * - A blank line separates groups with different observation times.
  *
  * The file layout:
- * ```
+ * @code
  * # $1  = time (seconds since 2000-01-01T00:00Z)
  * # $2  = observer altitude [km]
  * # $3  = observer longitude [deg]
@@ -4008,7 +3847,7 @@ void write_matrix(
  * # $10 = tangent point latitude [deg]
  * # $11..$N = Radiances or brightness temperatures for each channel
  * # $N..$M = Transmittances for each channel
- * ```
+ * @endcode
  *
  * - If `ctl->write_bbt` is true, radiances are expressed as
  *   brightness temperatures [K].
@@ -4027,23 +3866,6 @@ void write_matrix(
  * @warning
  * - Existing files with the same name are overwritten.
  * - The number of rays must not exceed `NR`.
- *
- * @example
- * Example file excerpt:
- * @code
- * # $1 = time (seconds since 2000-01-01T00:00Z)
- * # $2 = observer altitude [km]
- * # ...
- * 0.00 15.0 0.0 0.0 12.0 0.0 0.0 10.5 0.0 0.0  250.1 0.995
- * 0.00 15.0 0.0 0.0 12.0 0.0 0.0 10.3 0.0 0.0  249.8 0.992
- * @endcode
- *
- * @example
- * Example of brightness temperature mode:
- * @code
- * # $11 = brightness temperature (667.75 cm^-1) [K]
- * # $12 = transmittance (667.75 cm^-1) [-]
- * @endcode
  *
  * @author
  * Lars Hoffmann
@@ -4067,10 +3889,10 @@ void write_obs(
  *
  * @details
  * - Writes a plain-text table with two columns:
- *   ```
+ *   @code
  *   # $1 = shape function x-value [-]
  *   # $2 = shape function y-value [-]
- *   ```
+ *   @endcode
  * - Each line contains one (*x*, *y*) pair written with high precision.
  * - Typically used to export field-of-view functions, apodization kernels,
  *   or any other normalized shape profiles used by the model.
@@ -4085,20 +3907,6 @@ void write_obs(
  * @warning
  * - Existing files with the same name will be overwritten.
  * - The number of points *n* must be consistent with the size of *x* and *y* arrays.
- *
- * @example
- * Example output file:
- * @code
- * # $1 = shape function x-value [-]
- * # $2 = shape function y-value [-]
- *
- * 0.0000 0.0000
- * 0.2000 0.5403
- * 0.4000 0.9093
- * 0.6000 0.9899
- * 0.8000 0.7173
- * 1.0000 0.0000
- * @endcode
  *
  * @author
  * Lars Hoffmann
@@ -4148,19 +3956,9 @@ void write_shape(
  * - The output profile includes all state quantities defined in `ctl`.
  * - Only diagonal uncertainties are written; correlations are not stored.
  *
- * @example
- * @code
- * // Write posterior error standard deviations
- * write_stddev("pos", &ret, &ctl, &atm, S_post);
- * @endcode
- *
  * @warning
  * - The covariance matrix `s` must be symmetric and positive-definite.
  * - The state vector mapping (`x2atm`) must correspond to the matrix ordering.
- *
- * @references
- * Rodgers, C. D. (2000). *Inverse Methods for Atmospheric Sounding:
- * Theory and Practice.* World Scientific.
  *
  * @author
  * Lars Hoffmann
@@ -4393,13 +4191,6 @@ int write_tbl_gas_single(
  *   in the forward-model configuration.
  * - Mismatch between `atm2x()` and `x2atm()` ordering will cause incorrect mappings.
  *
- * @example
- * @code
- * // Example: apply retrieved state vector to atmospheric structure
- * gsl_vector *x_ret = load_retrieved_state("retrieval_output.dat");
- * x2atm(ctl, x_ret, atm);
- * @endcode
- *
  * @author
  * Lars Hoffmann
  */
@@ -4434,13 +4225,6 @@ void x2atm(
  *   is within valid bounds of the state vector length.
  * - Typically used only internally by retrieval mapping routines.
  *
- * @example
- * @code
- * size_t n = 0;
- * double temp;
- * x2atm_help(&temp, x, &n); // temp = x[n], then n++
- * @endcode
- *
  * @author
  * Lars Hoffmann
  */
@@ -4450,35 +4234,34 @@ void x2atm_help(
   size_t *n);
 
 /**
- * @brief Get element from state vector.
+ * @brief Copy elements from the measurement vector @p y into the observation structure.
  *
- * Retrieves a single element from the retrieval state vector and assigns it
- * to the provided variable. This function is primarily used as a helper
- * within `x2atm()` to sequentially extract atmospheric parameters
- * (pressure, temperature, gas mixing ratios, etc.) from the state vector.
+ * Decomposes the 1-D measurement vector @p y into its radiance components and
+ * writes them into the 2-D observation array @c obs->rad[id][ir], using the
+ * same ordering as produced by the corresponding forward model.
  *
- * @param[out] value  Pointer to scalar variable receiving the retrieved value.
- * @param[in]  x      Pointer to the state vector (`gsl_vector`) containing retrieval parameters.
- * @param[in,out] n   Pointer to current index in the state vector; incremented after access.
+ * Only entries for which @c obs->rad[id][ir] is finite are updated.  This allows
+ * missing or masked radiances to remain untouched in the observation structure.
+ *
+ * @param[in]  ctl  Control settings defining the number of detector channels
+ *                  (@c ctl->nd) and other retrieval configuration parameters.
+ * @param[in]  y    Measurement vector containing radiances in forward-model order.
+ * @param[out] obs  Observation structure whose radiance array (@c obs->rad)
+ *                  is to be filled with values from @p y.
  *
  * @details
- * - Equivalent to `*value = gsl_vector_get(x, *n); (*n)++;`
- * - Maintains consistent sequential mapping between state vector elements
- *   and atmospheric quantities.
- * - Used internally by retrieval update routines (`x2atm()`).
+ * The function loops over all ray paths (`obs->nr`) and detector channels
+ * (`ctl->nd`).  For each pair (detector @c id, ray @c ir) where an existing value
+ * in @c obs->rad[id][ir] is finite, the next element from the measurement vector
+ * @p y is inserted.  The counter @c m tracks progression through @p y.
  *
- * @see x2atm, atm2x
+ * This function is the inverse operation of the packing performed when
+ * constructing the measurement vector from an @ref obs_t structure.
  *
- * @note
- * - No bounds checking is performed; ensure `*n` is within vector range.
- * - Designed for internal use within the retrieval subsystem.
+ * @note The measurement vector @p y must contain as many finite elements as the
+ *       number of finite entries in @c obs->rad, in the same scanning order.
  *
- * @example
- * @code
- * size_t n = 0;
- * double p;
- * x2atm_help(&p, x, &n); // Assigns p = x[0], then increments n to 1
- * @endcode
+ * @see obs_t, ctl_t
  *
  * @author
  * Lars Hoffmann
