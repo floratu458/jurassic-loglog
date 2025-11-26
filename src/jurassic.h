@@ -2866,8 +2866,6 @@ void raytrace(
  *          and that the control parameters in `ctl` are valid before
  *          calling this function.
  *
- * @return void
- *
  * @author Lars Hoffmann
  */
 void read_atm(
@@ -2919,8 +2917,6 @@ void read_atm(
  * @warning The function terminates execution using `ERRMSG` if more than
  *          `NP` data points are encountered, or if the input format deviates
  *          from expectations.
- *
- * @return void
  *
  * @author Lars Hoffmann
  */
@@ -2975,8 +2971,6 @@ void read_atm_asc(
  * @warning Execution is terminated via `ERRMSG` if:
  *          - The binary header does not match the control structure.
  *          - The binary stream does not contain the expected amount of data.
- *
- * @return void
  *
  * @author Lars Hoffmann
  */
@@ -3067,44 +3061,120 @@ void read_matrix(
   gsl_matrix * matrix);
 
 /**
- * @brief Read observation geometry and radiance data from an ASCII file.
+ * @brief Read observation data from an input file.
  *
- * Loads line-of-sight (LOS) and radiance information into the @ref obs_t
- * structure from a text file. Each record represents one observation ray
- * with associated geometry (observer, view point, tangent point) and
- * optionally measured radiances and transmittances for multiple spectral
- * channels.
+ * This function reads atmospheric observation data from the specified file
+ * and stores the results in the provided ::obs_t structure. The file may be
+ * in ASCII or binary format, depending on the control settings passed via
+ * ::ctl_t. After reading the data, the routine performs basic validation
+ * (e.g., verifies that at least one observation entry was loaded) and logs
+ * diagnostic statistics such as ranges of times, observer coordinates, view
+ * point coordinates, tangent point coordinates, radiance or brightness
+ * temperature values, and transmittances.
  *
- * @param[in]  dirname   Directory containing the input file (may be NULL).
- * @param[in]  filename  Observation data filename.
- * @param[in]  ctl       Control structure defining number of radiance channels.
- * @param[out] obs       Observation data structure to be populated.
+ * The input file path is constructed from the provided directory and filename.
+ * If a directory name is given, the file is assumed to reside within it;
+ * otherwise, the filename is used as-is. Depending on the value of
+ * `ctl->obsfmt`, the function dispatches either to ::read_obs_asc() for ASCII
+ * files or ::read_obs_bin() for binary files.
  *
- * @details
- * - Each input line must contain, in order:
- *   - time [s since 2000-01-01T00:00Z],
- *   - observer altitude [km], longitude [°], latitude [°],
- *   - view-point altitude [km], longitude [°], latitude [°],
- *   - tangent-point altitude [km], longitude [°], latitude [°],
- *   - followed by radiances @f$ R_\nu @f$ for `nd` channels,
- *   - and transmittances @f$ \tau_\nu @f$ for the same channels.
- * - Performs range checks, counts valid ray paths, and logs data ranges.
- * - Radiances are interpreted as @f$ W/(m^2·sr·cm^{-1}) @f$ or converted to
- *   brightness temperatures depending on the `WRITE_BBT` flag.
- * - Aborts if the number of rays exceeds @c NR or no data are read.
+ * @param[in] dirname  Directory containing the input file, or `NULL` to use only @p filename.
+ * @param[in] filename Name of the observation file to read.
+ * @param[in] ctl      Pointer to a control structure specifying file format and other options.
+ * @param[out] obs     Pointer to an observation structure where the data will be stored.
  *
- * @see obs_t, ctl_t, read_atm, formod_fov, gsl_stats_minmax
+ * @note The function terminates with an error message if the file cannot be
+ *       opened, the observation format is unknown, or no valid data is read.
  *
- * @warning
- * - Expects consistent column ordering and sufficient numeric fields.
- * - Tangent-point and view-point coordinates must be provided even if redundant.
- * - Lines with parsing errors are ignored; missing fields trigger abort.
+ * @warning The @p obs structure must be properly allocated before calling this
+ *          function. The function assumes its arrays are large enough to store
+ *          all values contained in the input file.
+ *
+ * @see read_obs_asc(), read_obs_bin(), ctl_t, obs_t
  *
  * @author Lars Hoffmann
  */
 void read_obs(
   const char *dirname,
   const char *filename,
+  const ctl_t * ctl,
+  obs_t * obs);
+
+/**
+ * @brief Read ASCII-formatted observation data from an open file stream.
+ *
+ * This function parses atmospheric observation data from an ASCII text file
+ * and stores it in the provided ::obs_t structure. Each line in the input file
+ * is expected to contain numerical values representing a single observation
+ * record, including time, observer coordinates, view point coordinates,
+ * tangent point coordinates, radiance or brightness temperature values, and
+ * transmittances. The number of radiance and transmittance values per record
+ * is determined by `ctl->nd`.
+ *
+ * The function reads the file line by line, tokenizes the data fields, and
+ * fills the corresponding observation arrays. The number of successfully read
+ * observation entries is stored in `obs->nr`.
+ *
+ * @param[in]  in   Open file pointer from which the ASCII observation data
+ *                  will be read. The file must already be opened in read mode.
+ * @param[in]  ctl  Control structure containing metadata such as the number
+ *                  of spectral channels (`nd`).
+ * @param[out] obs  Observation structure where parsed data will be stored.
+ *
+ * @note This is a C function and assumes that the @p obs structure has been
+ *       preallocated with sufficient space for all records and spectral
+ *       channels. No memory allocation is performed inside this routine.
+ *
+ * @warning The function terminates with an error message if the number of
+ *          entries exceeds the predefined limit `NR`.
+ *
+ * @see read_obs(), read_obs_bin(), ctl_t, obs_t
+ *
+ * @author Lars Hoffmann
+ */
+void read_obs_asc(
+  FILE * in,
+  const ctl_t * ctl,
+  obs_t * obs);
+
+/**
+ * @brief Read binary-formatted observation data from an open file stream.
+ *
+ * This C function reads observation data stored in a compact binary format and
+ * initializes the provided ::obs_t structure with the values retrieved from
+ * the input file. The binary format begins with a header that contains a magic
+ * identifier and the expected number of spectral channels. The number of
+ * channels in the file must match `ctl->nd`, otherwise the routine aborts with
+ * an error.
+ *
+ * After verifying the header, the function reads the number of ray paths and
+ * then sequentially loads arrays corresponding to observation time, observer
+ * location, view point location, tangent point location, radiance (or
+ * brightness temperature), and transmittance data. The number of ray paths is
+ * assigned to `obs->nr`. All arrays must have been allocated prior to calling
+ * this function.
+ *
+ * @param[in]  in   Open file stream positioned at the beginning of the binary
+ *                  observation data. The file must be opened in binary mode.
+ * @param[in]  ctl  Pointer to a control structure specifying the number of
+ *                  spectral channels (`nd`) and other configuration settings.
+ * @param[out] obs  Pointer to an observation structure where the decoded
+ *                  binary data will be stored.
+ *
+ * @note This is a C routine and does not perform any memory allocation. The
+ *       caller must ensure that all arrays in @p obs have sufficient capacity
+ *       for the data being read.
+ *
+ * @warning The function terminates with an error message if the binary header
+ *          does not match the expected channel count, if more data than allowed
+ *          by `NR` is encountered, or if any read operation fails.
+ *
+ * @see read_obs(), read_obs_asc(), ctl_t, obs_t
+ *
+ * @author Lars Hoffmann
+ */
+void read_obs_bin(
+  FILE * in,
   const ctl_t * ctl,
   obs_t * obs);
 
@@ -3355,8 +3425,7 @@ tbl_t *read_tbl(
  *
  * @warning Aborts via `ERRMSG()` if table dimensions exceed TBLNP/TBLNT/TBLNU.
  *
- * @author
- * Lars Hoffmann
+ * @author Lars Hoffmann
  */
 void read_tbl_asc(
   const ctl_t * ctl,
@@ -3387,8 +3456,7 @@ void read_tbl_asc(
  *
  * @warning Aborts via `ERRMSG()` if table dimensions exceed TBLNP/TBLNT/TBLNU.
  *
- * @author
- * Lars Hoffmann
+ * @author Lars Hoffmann
  */
 void read_tbl_bin(
   const ctl_t * ctl,
@@ -3410,8 +3478,7 @@ void read_tbl_bin(
  *
  * @note Missing tables or missing frequency blocks only produce warnings.
  *
- * @author
- * Lars Hoffmann
+ * @author Lars Hoffmann
  */
 void read_tbl_gas(
   const ctl_t * ctl,
@@ -3430,8 +3497,7 @@ void read_tbl_gas(
  *
  * @return 0 on success, -1 on invalid handle.
  *
- * @author
- * Lars Hoffmann
+ * @author Lars Hoffmann
  */
 int read_tbl_gas_close(
   tbl_gas_t * g);
@@ -3450,8 +3516,7 @@ int read_tbl_gas_close(
  *
  * @warning Aborts via `ERRMSG()` on invalid magic or format.
  *
- * @author
- * Lars Hoffmann
+ * @author Lars Hoffmann
  */
 int read_tbl_gas_open(
   const char *path,
@@ -3485,8 +3550,7 @@ int read_tbl_gas_open(
  *
  * @warning Aborts on dimension overflow or seek errors.
  *
- * @author
- * Lars Hoffmann
+ * @author Lars Hoffmann
  */
 int read_tbl_gas_single(
   const tbl_gas_t * g,
@@ -3547,8 +3611,7 @@ int read_tbl_gas_single(
  *   overrides and configuration files with the same syntax.
  * - String comparisons are case-insensitive.
  *
- * @author
- * Lars Hoffmann
+ * @author Lars Hoffmann
  */
 double scan_ctl(
   int argc,
@@ -3609,8 +3672,7 @@ double scan_ctl(
  * - The matrix is constructed in full (dense), which may be large for
  *   high-resolution retrieval grids.
  *
- * @author
- * Lars Hoffmann
+ * @author Lars Hoffmann
  */
 void set_cov_apr(
   const ret_t * ret,
@@ -3671,8 +3733,7 @@ void set_cov_apr(
  * - A zero or negative uncertainty triggers a runtime error.
  * - Assumes `obs` and `ctl` are consistent in dimension and indexing.
  *
- * @author
- * Lars Hoffmann
+ * @author Lars Hoffmann
  */
 void set_cov_meas(
   const ret_t * ret,
@@ -3715,8 +3776,7 @@ void set_cov_meas(
  * - Accuracy is sufficient for radiative transfer applications (<0.1°).
  * - Longitude positive eastward, latitude positive northward.
  *
- * @author
- * Lars Hoffmann
+ * @author Lars Hoffmann
  */
 double sza(
   double sec,
@@ -3760,8 +3820,7 @@ double sza(
  * - If the LOS contains fewer than three valid points, or the geometry is strongly
  *   curved, the tangent point estimate may be unreliable.
  *
- * @author
- * Lars Hoffmann
+ * @author Lars Hoffmann
  */
 void tangent_point(
   const los_t * los,
@@ -3842,8 +3901,7 @@ void time2jsec(
  * - Exceeding 10 nested timers results in an error.
  * - Calling `mode == 2` or `3` without a prior start causes an internal error.
  *
- * @author
- * Lars Hoffmann
+ * @author Lars Hoffmann
  */
 void timer(
   const char *name,
@@ -3894,10 +3952,7 @@ void timer(
  * @note The function aborts execution using `ERRMSG` if the file cannot be created
  *       or if an unsupported output format is requested.
  *
- * @return void
- *
- * @author
- * Lars Hoffmann
+ * @author Lars Hoffmann
  */
 void write_atm(
   const char *dirname,
@@ -3954,10 +4009,7 @@ void write_atm(
  * @warning The function assumes that all arrays in `atm` are properly allocated
  *          and populated. No validation of data ranges is performed here.
  *
- * @return void
- *
- * @author
- * Lars Hoffmann
+ * @author Lars Hoffmann
  */
 void write_atm_asc(
   FILE * out,
@@ -4016,10 +4068,7 @@ void write_atm_asc(
  *          `read_atm_bin()`; modifying either implementation requires
  *          updating the other accordingly.
  *
- * @return void
- *
- * @author
- * Lars Hoffmann
+ * @author Lars Hoffmann
  */
 void write_atm_bin(
   FILE * out,
@@ -4075,8 +4124,7 @@ void write_atm_bin(
  * - Existing files with the same name will be overwritten.
  * - The function assumes consistent vertical ordering (surface → top of atmosphere).
  *
- * @author
- * Lars Hoffmann
+ * @author Lars Hoffmann
  */
 void write_atm_rfm(
   const char *filename,
@@ -4128,8 +4176,7 @@ void write_atm_rfm(
  * - Memory allocation is performed for temporary indexing arrays; ensure sufficient resources for large N, M.
  * - The function overwrites existing files without confirmation.
  *
- * @author
- * Lars Hoffmann
+ * @author Lars Hoffmann
  */
 void write_matrix(
   const char *dirname,
@@ -4143,65 +4190,115 @@ void write_matrix(
   const char *sort);
 
 /**
- * @brief Write observation geometry and radiance data to a text file.
+ * @brief Write observation data to an output file in ASCII or binary format.
  *
- * Exports observation metadata, viewing geometry, and simulated or measured
- * radiance data to an ASCII file. The format is compatible with `read_obs()`
- * and provides detailed column labeling for clarity and reproducibility.
+ * This C function constructs the full output file path from the provided
+ * directory and filename, opens the file for writing, and exports the
+ * contents of the ::obs_t structure in either ASCII or binary format,
+ * depending on the observation format specified by `ctl->obsfmt`. The actual
+ * writing of formatted data is delegated to ::write_obs_asc() or
+ * ::write_obs_bin().
  *
- * @param[in] dirname   Output directory path (may be `NULL`).
- * @param[in] filename  Output file name.
- * @param[in] ctl       Pointer to control structure defining spectral setup.
- * @param[in] obs       Pointer to observation data structure to write.
+ * After writing, the function prints diagnostic information showing ranges of
+ * times, observer coordinates, view point coordinates, tangent point
+ * coordinates, radiance or brightness temperature values (depending on
+ * `ctl->write_bbt`), and transmittances. These diagnostics provide useful
+ * verification that the output data is valid and consistent.
  *
- * @details
- * - The output file includes observer, view point, and tangent point coordinates,
- *   followed by either brightness temperatures or radiances and transmittances
- *   for each radiance channel.
- * - Each record corresponds to one line of sight (LOS), defined by a single
- *   observer → view path geometry.
- * - A blank line separates groups with different observation times.
+ * @param[in] dirname  Optional directory path. If NULL, only @p filename is used.
+ * @param[in] filename Name of the output observation file.
+ * @param[in] ctl      Control structure specifying output format, spectral
+ *                     channel configuration, and brightness-temperature mode.
+ * @param[in] obs      Observation structure containing the data to be written.
  *
- * The file layout:
- * @code
- * # $1  = time (seconds since 2000-01-01T00:00Z)
- * # $2  = observer altitude [km]
- * # $3  = observer longitude [deg]
- * # $4  = observer latitude [deg]
- * # $5  = view point altitude [km]
- * # $6  = view point longitude [deg]
- * # $7  = view point latitude [deg]
- * # $8  = tangent point altitude [km]
- * # $9  = tangent point longitude [deg]
- * # $10 = tangent point latitude [deg]
- * # $11..$N = Radiances or brightness temperatures for each channel
- * # $N..$M = Transmittances for each channel
- * @endcode
+ * @note This is a C function. The output file is always overwritten if it
+ *       already exists.
  *
- * - If `ctl->write_bbt` is true, radiances are expressed as
- *   brightness temperatures [K].
- * - Otherwise, radiances are written in units of W·m⁻²·sr⁻¹·cm⁻¹.
+ * @warning The routine aborts with an error message if the output file cannot
+ *          be created, or if `ctl->obsfmt` specifies an unsupported format.
  *
- * @see read_obs, ctl_t, obs_t
+ * @see write_obs_asc(), write_obs_bin(), read_obs(), ctl_t, obs_t
  *
- * @note
- * - Units:
- *   - Altitudes in kilometers [km]
- *   - Angles in degrees [deg]
- *   - Radiances in W·m⁻²·sr⁻¹·cm⁻¹ (or K if brightness temperatures)
- *   - Transmittances are dimensionless
- * - Compatible with both forward and retrieval model workflows.
- *
- * @warning
- * - Existing files with the same name are overwritten.
- * - The number of rays must not exceed `NR`.
- *
- * @author
- * Lars Hoffmann
+ * @author Lars Hoffmann
  */
 void write_obs(
   const char *dirname,
   const char *filename,
+  const ctl_t * ctl,
+  const obs_t * obs);
+
+/**
+ * @brief Write observation data to an ASCII text file.
+ *
+ * This C function writes the contents of the ::obs_t observation structure as
+ * human-readable ASCII text to the given output stream. It first prints a
+ * descriptive header that documents each column of the output format,
+ * including observation time, observer and view geometry, tangent point
+ * information, and spectral values. The number and meaning of spectral fields
+ * depend on `ctl->nd` and whether brightness temperature output is enabled
+ * via `ctl->write_bbt`.
+ *
+ * The function then writes one line of data per ray path, including the base
+ * geometric information followed by radiance or brightness temperature values
+ * and transmittances for each spectral channel. Blank lines are inserted
+ * whenever the time stamp changes, providing visual separation of distinct
+ * observation groups.
+ *
+ * @param[in] out  Output file stream opened in text mode.
+ * @param[in] ctl  Control structure specifying the number of spectral
+ *                 channels (`nd`), wavenumbers (`nu`), and output mode
+ *                 (`write_bbt`).
+ * @param[in] obs  Observation structure containing the data to be written.
+ *
+ * @note This is a C routine that produces plain-text output intended for
+ *       inspection, debugging, and compatibility with external processing
+ *       tools.
+ *
+ * @warning The caller must ensure that @p out is valid and writable. No
+ *          attempt is made to reopen or validate the file stream.
+ *
+ * @see write_obs(), write_obs_bin(), ctl_t, obs_t
+ *
+ * @author Lars Hoffmann
+ */
+void write_obs_asc(
+  FILE * out,
+  const ctl_t * ctl,
+  const obs_t * obs);
+
+/**
+ * @brief Write observation data in binary format to an output file stream.
+ *
+ * This C function serializes the contents of the ::obs_t structure into a
+ * compact binary format and writes it to the file stream provided via @p out.
+ * The binary format begins with a header consisting of a magic identifier
+ * ("OBS1") and the number of spectral channels (`ctl->nd`). This header is
+ * used by ::read_obs_bin() to validate compatibility when reading.
+ *
+ * Following the header, the function writes the number of ray paths and then
+ * sequentially outputs arrays of observation metadata, geometric parameters,
+ * radiance or brightness temperature values, and transmittances. All values
+ * are written in native binary representation using the FWRITE() macro, which
+ * performs buffered writes and error checking.
+ *
+ * @param[out] out  Output file stream opened in binary mode.
+ * @param[in]  ctl  Control structure specifying the number of spectral
+ *                  channels (`nd`) and corresponding configuration parameters.
+ * @param[in]  obs  Observation structure containing the data to be written.
+ *
+ * @note This is a C routine that does not perform any formatting or conversion.
+ *       The resulting file is portable only to systems with compatible binary
+ *       layouts (integer size, floating-point format, and endianness).
+ *
+ * @warning The caller must ensure that @p out is writable and already opened
+ *          in binary mode. The function does not validate stream state.
+ *
+ * @see write_obs(), write_obs_asc(), read_obs_bin(), ctl_t, obs_t
+ *
+ * @author Lars Hoffmann
+ */
+void write_obs_bin(
+  FILE * out,
   const ctl_t * ctl,
   const obs_t * obs);
 
@@ -4237,8 +4334,7 @@ void write_obs(
  * - Existing files with the same name will be overwritten.
  * - The number of points *n* must be consistent with the size of *x* and *y* arrays.
  *
- * @author
- * Lars Hoffmann
+ * @author Lars Hoffmann
  */
 void write_shape(
   const char *filename,
@@ -4289,8 +4385,7 @@ void write_shape(
  * - The covariance matrix `s` must be symmetric and positive-definite.
  * - The state vector mapping (`x2atm`) must correspond to the matrix ordering.
  *
- * @author
- * Lars Hoffmann
+ * @author Lars Hoffmann
  */
 void write_stddev(
   const char *quantity,
@@ -4315,8 +4410,7 @@ void write_stddev(
  *             number of gases, number of frequencies, etc.
  * @param tbl  Fully populated lookup-table structure to be written.
  *
- * @author
- * Lars Hoffmann
+ * @author Lars Hoffmann
  */
 void write_tbl(
   const ctl_t * ctl,
@@ -4343,8 +4437,7 @@ void write_tbl(
  * @param ctl  Control structure providing grid metadata and filename base.
  * @param tbl  Table data to be written.
  *
- * @author
- * Lars Hoffmann
+ * @author Lars Hoffmann
  */
 void write_tbl_asc(
   const ctl_t * ctl,
@@ -4372,8 +4465,7 @@ void write_tbl_asc(
  * @param ctl  Control structure containing filename base and spectral grid.
  * @param tbl  Table data to be serialized.
  *
- * @author
- * Lars Hoffmann
+ * @author Lars Hoffmann
  */
 void write_tbl_bin(
   const ctl_t * ctl,
@@ -4403,8 +4495,7 @@ void write_tbl_bin(
  * @warning The file must have capacity for all required frequency entries
  *          (MAX_TABLES). Exceeding this capacity triggers a fatal error.
  *
- * @author
- * Lars Hoffmann
+ * @author Lars Hoffmann
  */
 void write_tbl_gas(
   const ctl_t * ctl,
@@ -4426,8 +4517,7 @@ void write_tbl_gas(
  *
  * @return 0 on success, -1 if the file cannot be opened.
  *
- * @author
- * Lars Hoffmann
+ * @author Lars Hoffmann
  */
 int write_tbl_gas_create(
   const char *path);
@@ -4466,8 +4556,7 @@ int write_tbl_gas_create(
  *
  * @warning Aborts via ERRMSG() if MAX_TABLES is exceeded or file seek fails.
  *
- * @author
- * Lars Hoffmann
+ * @author Lars Hoffmann
  */
 int write_tbl_gas_single(
   tbl_gas_t * g,
@@ -4520,8 +4609,7 @@ int write_tbl_gas_single(
  *   in the forward-model configuration.
  * - Mismatch between `atm2x()` and `x2atm()` ordering will cause incorrect mappings.
  *
- * @author
- * Lars Hoffmann
+ * @author Lars Hoffmann
  */
 void x2atm(
   const ctl_t * ctl,
@@ -4554,8 +4642,7 @@ void x2atm(
  *   is within valid bounds of the state vector length.
  * - Typically used only internally by retrieval mapping routines.
  *
- * @author
- * Lars Hoffmann
+ * @author Lars Hoffmann
  */
 void x2atm_help(
   double *value,
@@ -4592,8 +4679,7 @@ void x2atm_help(
  *
  * @see obs_t, ctl_t
  *
- * @author
- * Lars Hoffmann
+ * @author Lars Hoffmann
  */
 void y2obs(
   const ctl_t * ctl,

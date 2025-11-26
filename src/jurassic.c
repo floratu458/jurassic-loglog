@@ -5160,10 +5160,7 @@ void read_obs(
 
   FILE *in;
 
-  char file[LEN], line[LEN], *tok;
-
-  /* Init... */
-  obs->nr = 0;
+  char file[LEN];
 
   /* Set filename... */
   if (dirname != NULL)
@@ -5178,29 +5175,17 @@ void read_obs(
   if (!(in = fopen(file, "r")))
     ERRMSG("Cannot open file!");
 
-  /* Read line... */
-  while (fgets(line, LEN, in)) {
+  /* Read ASCII data... */
+  if (ctl->obsfmt == 1)
+    read_obs_asc(in, ctl, obs);
 
-    /* Read data... */
-    TOK(line, tok, "%lg", obs->time[obs->nr]);
-    TOK(NULL, tok, "%lg", obs->obsz[obs->nr]);
-    TOK(NULL, tok, "%lg", obs->obslon[obs->nr]);
-    TOK(NULL, tok, "%lg", obs->obslat[obs->nr]);
-    TOK(NULL, tok, "%lg", obs->vpz[obs->nr]);
-    TOK(NULL, tok, "%lg", obs->vplon[obs->nr]);
-    TOK(NULL, tok, "%lg", obs->vplat[obs->nr]);
-    TOK(NULL, tok, "%lg", obs->tpz[obs->nr]);
-    TOK(NULL, tok, "%lg", obs->tplon[obs->nr]);
-    TOK(NULL, tok, "%lg", obs->tplat[obs->nr]);
-    for (int id = 0; id < ctl->nd; id++)
-      TOK(NULL, tok, "%lg", obs->rad[id][obs->nr]);
-    for (int id = 0; id < ctl->nd; id++)
-      TOK(NULL, tok, "%lg", obs->tau[id][obs->nr]);
+  /* Read binary data... */
+  else if (ctl->obsfmt == 2)
+    read_obs_bin(in, ctl, obs);
 
-    /* Increment counter... */
-    if ((++obs->nr) > NR)
-      ERRMSG("Too many rays!");
-  }
+  /* Error... */
+  else
+    ERRMSG("Unknown observation file format!");
 
   /* Close file... */
   fclose(in);
@@ -5249,6 +5234,110 @@ void read_obs(
 	  ctl->nu[id], mini, maxi);
     }
   }
+}
+
+/*****************************************************************************/
+
+void read_obs_asc(
+  FILE *in,
+  const ctl_t *ctl,
+  obs_t *obs) {
+
+  char line[LEN], *tok;
+
+  /* Init... */
+  obs->nr = 0;
+
+  /* Read line... */
+  while (fgets(line, LEN, in)) {
+
+    /* Read data... */
+    TOK(line, tok, "%lg", obs->time[obs->nr]);
+    TOK(NULL, tok, "%lg", obs->obsz[obs->nr]);
+    TOK(NULL, tok, "%lg", obs->obslon[obs->nr]);
+    TOK(NULL, tok, "%lg", obs->obslat[obs->nr]);
+    TOK(NULL, tok, "%lg", obs->vpz[obs->nr]);
+    TOK(NULL, tok, "%lg", obs->vplon[obs->nr]);
+    TOK(NULL, tok, "%lg", obs->vplat[obs->nr]);
+    TOK(NULL, tok, "%lg", obs->tpz[obs->nr]);
+    TOK(NULL, tok, "%lg", obs->tplon[obs->nr]);
+    TOK(NULL, tok, "%lg", obs->tplat[obs->nr]);
+    for (int id = 0; id < ctl->nd; id++)
+      TOK(NULL, tok, "%lg", obs->rad[id][obs->nr]);
+    for (int id = 0; id < ctl->nd; id++)
+      TOK(NULL, tok, "%lg", obs->tau[id][obs->nr]);
+
+    /* Increment counter... */
+    if ((++obs->nr) > NR)
+      ERRMSG("Too many rays!");
+  }
+}
+
+/*****************************************************************************/
+
+void read_obs_bin(
+  FILE *in,
+  const ctl_t *ctl,
+  obs_t *obs) {
+
+  /* Read header... */
+  char magic[4];
+  FREAD(magic, char,
+	4,
+	in);
+  int nd;
+  FREAD(&nd, int,
+	1,
+	in);
+  if (nd != ctl->nd)
+    ERRMSG("Error reading file header!");
+
+  /* Read data... */
+  size_t nr;
+  FREAD(&nr, size_t,
+	1,
+	in);
+  obs->nr = (int) nr;
+  if (obs->nr > NR)
+    ERRMSG("Too many ray paths!");
+  FREAD(obs->time, double,
+	nr,
+	in);
+  FREAD(obs->obsz, double,
+	nr,
+	in);
+  FREAD(obs->obslon, double,
+	nr,
+	in);
+  FREAD(obs->obslat, double,
+	nr,
+	in);
+  FREAD(obs->vpz, double,
+	nr,
+	in);
+  FREAD(obs->vplon, double,
+	nr,
+	in);
+  FREAD(obs->vplat, double,
+	nr,
+	in);
+  FREAD(obs->tpz, double,
+	nr,
+	in);
+  FREAD(obs->tplon, double,
+	nr,
+	in);
+  FREAD(obs->tplat, double,
+	nr,
+	in);
+  for (int id = 0; id < ctl->nd; id++)
+    FREAD(obs->rad[id], double,
+	  nr,
+	  in);
+  for (int id = 0; id < ctl->nd; id++)
+    FREAD(obs->tau[id], double,
+	  nr,
+	  in);
 }
 
 /*****************************************************************************/
@@ -6623,8 +6712,6 @@ void write_obs(
 
   char file[LEN];
 
-  int n = 10;
-
   /* Set filename... */
   if (dirname != NULL)
     sprintf(file, "%s/%s", dirname, filename);
@@ -6638,43 +6725,17 @@ void write_obs(
   if (!(out = fopen(file, "w")))
     ERRMSG("Cannot create file!");
 
-  /* Write header... */
-  fprintf(out,
-	  "# $1 = time (seconds since 2000-01-01T00:00Z)\n"
-	  "# $2 = observer altitude [km]\n"
-	  "# $3 = observer longitude [deg]\n"
-	  "# $4 = observer latitude [deg]\n"
-	  "# $5 = view point altitude [km]\n"
-	  "# $6 = view point longitude [deg]\n"
-	  "# $7 = view point latitude [deg]\n"
-	  "# $8 = tangent point altitude [km]\n"
-	  "# $9 = tangent point longitude [deg]\n"
-	  "# $10 = tangent point latitude [deg]\n");
-  for (int id = 0; id < ctl->nd; id++)
-    if (ctl->write_bbt)
-      fprintf(out, "# $%d = brightness temperature (%.4f cm^-1) [K]\n",
-	      ++n, ctl->nu[id]);
-    else
-      fprintf(out, "# $%d = radiance (%.4f cm^-1) [W/(m^2 sr cm^-1)]\n",
-	      ++n, ctl->nu[id]);
-  for (int id = 0; id < ctl->nd; id++)
-    fprintf(out, "# $%d = transmittance (%.4f cm^-1) [-]\n", ++n,
-	    ctl->nu[id]);
+  /* Write ASCII data... */
+  if (ctl->obsfmt == 1)
+    write_obs_asc(out, ctl, obs);
 
-  /* Write data... */
-  for (int ir = 0; ir < obs->nr; ir++) {
-    if (ir == 0 || obs->time[ir] != obs->time[ir - 1])
-      fprintf(out, "\n");
-    fprintf(out, "%.2f %g %g %g %g %g %g %g %g %g", obs->time[ir],
-	    obs->obsz[ir], obs->obslon[ir], obs->obslat[ir],
-	    obs->vpz[ir], obs->vplon[ir], obs->vplat[ir],
-	    obs->tpz[ir], obs->tplon[ir], obs->tplat[ir]);
-    for (int id = 0; id < ctl->nd; id++)
-      fprintf(out, " %g", obs->rad[id][ir]);
-    for (int id = 0; id < ctl->nd; id++)
-      fprintf(out, " %g", obs->tau[id][ir]);
-    fprintf(out, "\n");
-  }
+  /* Write binary data... */
+  else if (ctl->obsfmt == 2)
+    write_obs_bin(out, ctl, obs);
+
+  /* Error... */
+  else
+    ERRMSG("Unknown observation file format, check OBSFMT!");
 
   /* Close file... */
   fclose(out);
@@ -6719,6 +6780,114 @@ void write_obs(
 	  ctl->nu[id], mini, maxi);
     }
   }
+}
+
+/*****************************************************************************/
+
+void write_obs_asc(
+  FILE *out,
+  const ctl_t *ctl,
+  const obs_t *obs) {
+
+  int n = 10;
+
+  /* Write header... */
+  fprintf(out,
+	  "# $1 = time (seconds since 2000-01-01T00:00Z)\n"
+	  "# $2 = observer altitude [km]\n"
+	  "# $3 = observer longitude [deg]\n"
+	  "# $4 = observer latitude [deg]\n"
+	  "# $5 = view point altitude [km]\n"
+	  "# $6 = view point longitude [deg]\n"
+	  "# $7 = view point latitude [deg]\n"
+	  "# $8 = tangent point altitude [km]\n"
+	  "# $9 = tangent point longitude [deg]\n"
+	  "# $10 = tangent point latitude [deg]\n");
+  for (int id = 0; id < ctl->nd; id++)
+    if (ctl->write_bbt)
+      fprintf(out, "# $%d = brightness temperature (%.4f cm^-1) [K]\n",
+	      ++n, ctl->nu[id]);
+    else
+      fprintf(out, "# $%d = radiance (%.4f cm^-1) [W/(m^2 sr cm^-1)]\n",
+	      ++n, ctl->nu[id]);
+  for (int id = 0; id < ctl->nd; id++)
+    fprintf(out, "# $%d = transmittance (%.4f cm^-1) [-]\n", ++n,
+	    ctl->nu[id]);
+
+  /* Write data... */
+  for (int ir = 0; ir < obs->nr; ir++) {
+    if (ir == 0 || obs->time[ir] != obs->time[ir - 1])
+      fprintf(out, "\n");
+    fprintf(out, "%.2f %g %g %g %g %g %g %g %g %g", obs->time[ir],
+	    obs->obsz[ir], obs->obslon[ir], obs->obslat[ir],
+	    obs->vpz[ir], obs->vplon[ir], obs->vplat[ir],
+	    obs->tpz[ir], obs->tplon[ir], obs->tplat[ir]);
+    for (int id = 0; id < ctl->nd; id++)
+      fprintf(out, " %g", obs->rad[id][ir]);
+    for (int id = 0; id < ctl->nd; id++)
+      fprintf(out, " %g", obs->tau[id][ir]);
+    fprintf(out, "\n");
+  }
+}
+
+/*****************************************************************************/
+
+void write_obs_bin(
+  FILE *out,
+  const ctl_t *ctl,
+  const obs_t *obs) {
+
+  /* Write header... */
+  FWRITE("OBS1", char,
+	 4,
+	 out);
+  FWRITE(&ctl->nd, int,
+	 1,
+	 out);
+
+  /* Write data... */
+  size_t nr = (size_t) obs->nr;
+  FWRITE(&nr, size_t,
+	 1,
+	 out);
+  FWRITE(obs->time, double,
+	 nr,
+	 out);
+  FWRITE(obs->obsz, double,
+	 nr,
+	 out);
+  FWRITE(obs->obslon, double,
+	 nr,
+	 out);
+  FWRITE(obs->obslat, double,
+	 nr,
+	 out);
+  FWRITE(obs->vpz, double,
+	 nr,
+	 out);
+  FWRITE(obs->vplon, double,
+	 nr,
+	 out);
+  FWRITE(obs->vplat, double,
+	 nr,
+	 out);
+  FWRITE(obs->tpz, double,
+	 nr,
+	 out);
+  FWRITE(obs->tplon, double,
+	 nr,
+	 out);
+  FWRITE(obs->tplat, double,
+	 nr,
+	 out);
+  for (int id = 0; id < ctl->nd; id++)
+    FWRITE(obs->rad[id], double,
+	   nr,
+	   out);
+  for (int id = 0; id < ctl->nd; id++)
+    FWRITE(obs->tau[id], double,
+	   nr,
+	   out);
 }
 
 /*****************************************************************************/
