@@ -19,6 +19,7 @@ src/kernel
 src/limb
 src/nadir
 src/obs2spec
+src/obsfmt
 src/planck
 src/raytrace
 src/retrieval

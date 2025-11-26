@@ -4943,6 +4943,8 @@ void read_atm_bin(
 	1,
 	in);
   atm->np = (int) np;
+  if (atm->np > NP)
+    ERRMSG("Too many data points!");
   FREAD(atm->time, double,
 	np,
 	in);

@@ -3,7 +3,7 @@
 # -----------------------------------------------------------------------------
 
 # Executables...
-EXC = atmfmt brightness climatology filter formod hydrostatic interpolate invert jsec2time kernel limb nadir obs2spec planck raytrace retrieval tblfmt tblgen time2jsec
+EXC = atmfmt brightness climatology filter formod hydrostatic interpolate invert jsec2time kernel limb nadir obs2spec obsfmt planck raytrace retrieval tblfmt tblgen time2jsec
 
 # List of tests...
 TESTS = limb_test nadir_test ret_test tbl_test tools_test
