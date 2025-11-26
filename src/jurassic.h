@@ -400,11 +400,16 @@
  *
  * @note Based on Planck’s law in wavenumber form:
  *       \f$ T_b = \frac{c_2 \nu}{\ln\!\left(1 + \frac{c_1 \nu^3}{L_\nu}\right)} \f$
- *       where \f$L_\nu\f$ is the radiance.
+ *       where \f$L_\nu\f$ is the radiance. The ν³ dependence reflects the
+ *       definition of `C1` for radiance per unit wavenumber in cm⁻¹.
+ *
+ * @warning The radiance MUST be in W·m⁻²·sr⁻¹·(cm⁻¹)⁻¹. Using radiance per meter
+ *          will produce brightness temperatures incorrect by six orders of
+ *          magnitude.
  *
  * @author Lars Hoffmann
  */
-#define BRIGHT(rad, nu) \
+#define BRIGHT(rad, nu)					\
   (C2 * (nu) / gsl_log1p(C1 * POW3(nu) / (rad)))
 
 /**
@@ -523,42 +528,6 @@
   }
 
 /**
- * @brief Determine the maximum of two values.
- *
- * Returns the greater of two scalar values.
- *
- * @param[in] a First value.
- * @param[in] b Second value.
- *
- * @return Maximum of a and b.
- *
- * @see MIN
- *
- * @note Both arguments are evaluated multiple times; avoid side effects.
- *
- * @author Lars Hoffmann
- */
-#define MAX(a,b) (((a)>(b))?(a):(b))
-
-/**
- * @brief Determine the minimum of two values.
- *
- * Returns the smaller of two scalar values.
- *
- * @param[in] a First value.
- * @param[in] b Second value.
- *
- * @return Minimum of a and b.
- *
- * @see MAX
- *
- * @note Both arguments are evaluated multiple times; avoid side effects.
- *
- * @author Lars Hoffmann
- */
-#define MIN(a,b) (((a)<(b))?(a):(b))
-
-/**
  * @brief Compute linear interpolation.
  *
  * Performs simple linear interpolation between two known points
@@ -626,6 +595,103 @@
    : LIN(x0, y0, x1, y1, x))
 
 /**
+ * @brief Determine the maximum of two values.
+ *
+ * Returns the greater of two scalar values.
+ *
+ * @param[in] a First value.
+ * @param[in] b Second value.
+ *
+ * @return Maximum of a and b.
+ *
+ * @see MIN
+ *
+ * @note Both arguments are evaluated multiple times; avoid side effects.
+ *
+ * @author Lars Hoffmann
+ */
+#define MAX(a,b) (((a)>(b))?(a):(b))
+
+/**
+ * @brief Determine the minimum of two values.
+ *
+ * Returns the smaller of two scalar values.
+ *
+ * @param[in] a First value.
+ * @param[in] b Second value.
+ *
+ * @return Minimum of a and b.
+ *
+ * @see MAX
+ *
+ * @note Both arguments are evaluated multiple times; avoid side effects.
+ *
+ * @author Lars Hoffmann
+ */
+#define MIN(a,b) (((a)<(b))?(a):(b))
+
+/**
+ * @brief Convert noise-equivalent spectral radiance (NESR) to
+ *        noise-equivalent delta temperature (NEDT).
+ *
+ * Computes the temperature noise level corresponding to a given NESR at a
+ * background radiance, using the inverse Planck function. The NEDT expresses
+ * radiometric sensitivity in temperature units, assuming blackbody emission.
+ *
+ * @param[in] t_bg  Background (scene) brightness temperature [K].
+ * @param[in] nesr  Noise-equivalent spectral radiance
+ *                  [W·m⁻²·sr⁻¹·(cm⁻¹)⁻¹].
+ * @param[in] nu    Wavenumber [cm⁻¹].
+ *
+ * @return Noise-equivalent delta temperature [K].
+ *
+ * @note This macro computes
+ *       \f[
+ *          \mathrm{NEDT} = T_b(L_\nu(T_\mathrm{bg}) + \mathrm{NESR})
+ *                        - T_\mathrm{bg}
+ *       \f]
+ *       where \f$T_b\f$ is the brightness temperature from the inverse
+ *       Planck function.
+ *
+ * @warning All units must be consistent with `PLANCK` and `BRIGHT`. Mixing
+ *          radiance units per meter instead of per cm⁻¹ will yield incorrect
+ *          results by orders of magnitude.
+ *
+ * @see NESR, PLANCK, BRIGHT, C1, C2
+ */
+#define NEDT(t_bg, nesr, nu)					\
+  (BRIGHT(PLANCK((t_bg), (nu)) + (nesr), (nu)) - (t_bg))
+
+/**
+ * @brief Convert noise-equivalent delta temperature (NEDT) to
+ *        noise-equivalent spectral radiance (NESR).
+ *
+ * Computes the radiance difference corresponding to a temperature noise level
+ * at a given background temperature and wavenumber, using Planck’s law.
+ * The NESR quantifies the radiometric sensitivity in spectral radiance units.
+ *
+ * @param[in] t_bg  Background (scene) brightness temperature [K].
+ * @param[in] nedt  Noise-equivalent delta temperature [K].
+ * @param[in] nu    Wavenumber [cm⁻¹].
+ *
+ * @return Noise-equivalent spectral radiance [W·m⁻²·sr⁻¹·(cm⁻¹)⁻¹].
+ *
+ * @note This macro computes
+ *       \f[
+ *          \mathrm{NESR} = L_\nu(T_\mathrm{bg} + \mathrm{NEDT})
+ *                        - L_\nu(T_\mathrm{bg})
+ *       \f]
+ *       where \f$L_\nu\f$ is spectral radiance from Planck’s law.
+ *
+ * @warning All units must be consistent with `PLANCK`. In particular,
+ *          `nu` must be given in cm⁻¹.
+ *
+ * @see PLANCK, NEDT, BRIGHT
+ */
+#define NESR(t_bg, nedt, nu)					\
+  (PLANCK((t_bg) + (nedt), (nu)) - PLANCK((t_bg), (nu)))
+
+/**
  * @brief Compute the norm (magnitude) of a 3D vector.
  *
  * Computes the Euclidean norm using the dot product:
@@ -642,21 +708,33 @@
 #define NORM(a) sqrt(DOTP(a, a))
 
 /**
- * @brief Compute the Planck function in wavenumber form.
+ * @brief Compute spectral radiance using Planck’s law.
  *
- * Computes spectral radiance per unit wavenumber using Planck’s law:
- * \f$ B_\nu(T) = \frac{C_1 \nu^3}{\exp(C_2 \nu / T) - 1} \f$.
+ * Evaluates Planck’s blackbody spectral radiance for a given temperature and
+ * wavenumber. The expression is formulated in wavenumber space (cm⁻¹) and uses
+ * the spectroscopic constants `C1` and `C2` in wavenumber units.
  *
- * @param[in] T Temperature [K].
- * @param[in] nu Wavenumber [cm⁻¹].
+ * @param[in] nu  Wavenumber [cm⁻¹].
+ * @param[in] T   Temperature [K].
  *
- * @return Spectral radiance [W·m⁻²·sr⁻¹·(cm⁻¹)⁻¹].
+ * @return Spectral radiance \f$L_\nu\f$ in
+ *         [W·m⁻²·sr⁻¹·(cm⁻¹)⁻¹].
+ *
+ * @note The Planck law implemented here is
+ *       \f[
+ *           L_\nu = \frac{C_{1}\,\nu^{3}}
+ *                        {\exp\!\left(\frac{C_{2}\,\nu}{T}\right) - 1}
+ *       \f]
+ *       with \f$\nu\f$ in cm⁻¹.
+ *       The \f$\nu^{3}\f$ dependence follows from the definition of `C1`
+ *       for radiance per wavenumber in cm⁻¹.
+ *
+ * @warning The units of all inputs MUST be consistent:
+ *          `nu` in cm⁻¹ and `T` in kelvin. Mixing wavenumber and
+ *          frequency formulations, or using radiance per meter instead of
+ *          per cm⁻¹, will produce results off by orders of magnitude.
  *
  * @see BRIGHT, C1, C2
- *
- * @note Constants `C1` and `C2` must correspond to wavenumber units.
- *
- * @author Lars Hoffmann
  */
 #define PLANCK(T, nu) \
   (C1 * POW3(nu) / gsl_expm1(C2 * (nu) / (T)))
