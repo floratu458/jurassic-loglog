@@ -1104,6 +1104,12 @@ typedef struct {
   /*! Look-up table file format (1=ASCII, 2=binary). */
   int tblfmt;
 
+  /*! Atmospheric data file format (1=ASCII, 2=binary). */
+  int atmfmt;
+
+  /*! Observation data file format (1=ASCII, 2=binary). */
+  int obsfmt;
+
   /*! Reference height for hydrostatic pressure profile (-999 to skip) [km]. */
   double hydz;
 
@@ -2818,45 +2824,164 @@ void raytrace(
   const int ir);
 
 /**
- * @brief Read atmospheric profile data from an ASCII file.
+ * @brief Read atmospheric input data from a file.
  *
- * Loads an atmospheric state profile into the @ref atm_t structure
- * from a text file containing altitude-dependent quantities such as
- * pressure, temperature, volume mixing ratios, and extinction coefficients.  
- * Optionally reads cloud and surface parameters for the first level.
+ * This function reads atmospheric data from the file specified by
+ * `filename`, optionally prefixed by the directory `dirname`. The
+ * file format (ASCII or binary) is determined by the control structure
+ * `ctl`. The data are stored in the atmospheric structure `atm`.
  *
- * @param[in]  dirname   Directory containing the input file (may be NULL).
- * @param[in]  filename  Atmospheric profile filename.
- * @param[in]  ctl       Control structure defining number of gases, windows, etc.
- * @param[out] atm       Atmospheric data structure to be filled with profile data.
+ * Supported file formats are:
+ * - ASCII format (`ctl->atmfmt == 1`)
+ * - Binary format (`ctl->atmfmt == 2`)
  *
- * @details
- * - Each line of the input file must contain, in order:
- *   - time [s since 2000-01-01T00:00Z],
- *   - altitude [km],
- *   - longitude [deg],
- *   - latitude [deg],
- *   - pressure [hPa],
- *   - temperature [K],
- *   - gas volume mixing ratios [ppv] for `ng` emitters,
- *   - extinction coefficients [km⁻¹] for `nw` windows.  
- * - The first line may additionally contain cloud (`clz`, `cldz`, `clk`)
- *   and surface (`sft`, `sfeps`) parameters if enabled in @p ctl.
- * - Performs consistency checks and logs value ranges for diagnostic output.
- * - Fails if the number of profile points exceeds @c NP.
+ * The function initializes the atmospheric data container, opens the
+ * specified file, reads its contents according to the selected format, and
+ * performs sanity checks on the number of data points. It also logs basic
+ * statistical information about the loaded atmospheric fields (time, altitude,
+ * longitude, latitude, pressure, temperature, and species/emitter mixing ratios).
  *
- * @see atm_t, ctl_t, hydrostatic, formod, copy_atm
+ * @param dirname
+ *        Optional directory path where the atmospheric file resides.
+ *        If NULL, only `filename` is used.
  *
- * @warning
- * - Expects monotonic altitude ordering (increasing z).
- * - Cloud and surface parameters are only read for the first profile level.
- * - Aborts if the file cannot be opened or parsed correctly.
+ * @param filename
+ *        Name of the atmospheric data file to read.
+ *
+ * @param ctl
+ *        Pointer to a control structure specifying input parameters,
+ *        file format, number of emitters, spectral windows, and additional
+ *        atmospheric configuration.
+ *
+ * @param atm
+ *        Pointer to an atmospheric data structure that will be filled with
+ *        the values read from the file. The structure must be allocated
+ *        before calling this function.
+ *
+ * @note The function aborts execution using ERRMSG on critical errors,
+ *       such as failure to open the file, unknown file format, or absence
+ *       of readable data.
+ *
+ * @warning Ensure that the `atm` structure has been properly allocated,
+ *          and that the control parameters in `ctl` are valid before
+ *          calling this function.
+ *
+ * @return void
  *
  * @author Lars Hoffmann
  */
 void read_atm(
   const char *dirname,
   const char *filename,
+  const ctl_t * ctl,
+  atm_t * atm);
+
+/**
+ * @brief Read atmospheric data in ASCII format.
+ *
+ * This function parses atmospheric input data from an opened ASCII file stream
+ * (`in`) and stores the values in the atmospheric structure `atm`. The number
+ * and type of fields to read are determined by the control structure `ctl`.
+ * Each line of the ASCII file corresponds to a single atmospheric data point.
+ *
+ * The expected order of fields in each line is:
+ *   - Time
+ *   - Altitude
+ *   - Longitude
+ *   - Latitude
+ *   - Pressure
+ *   - Temperature
+ *   - Mixing ratios for each gas/emitter (`ctl->ng` values)
+ *   - Extinction coefficients for each spectral window (`ctl->nw` values)
+ *
+ * Additionally, if cloud or surface layer parameters are enabled in `ctl`,
+ * they are read once from the first line only:
+ *   - Cloud layer: altitude, thickness, and extinction (`ctl->ncl` values)
+ *   - Surface layer: temperature and emissivity (`ctl->nsf` values)
+ *
+ * @param in
+ *        Pointer to an already opened input file stream containing ASCII
+ *        atmospheric data.
+ *
+ * @param ctl
+ *        Pointer to a control structure defining the number of gases,
+ *        spectral windows, and whether cloud or surface layer information
+ *        should be read.
+ *
+ * @param atm
+ *        Pointer to an initialized atmospheric structure where the parsed
+ *        data points will be stored. The function updates `atm->np` to
+ *        reflect the number of successfully read data records.
+ *
+ * @note The function continues reading until EOF is reached. Each successfully
+ *       parsed line increments the atmospheric data point counter.
+ *
+ * @warning The function terminates execution using `ERRMSG` if more than
+ *          `NP` data points are encountered, or if the input format deviates
+ *          from expectations.
+ *
+ * @return void
+ *
+ * @author Lars Hoffmann
+ */
+void read_atm_asc(
+  FILE * in,
+  const ctl_t * ctl,
+  atm_t * atm);
+
+/**
+ * @brief Read atmospheric data in binary format.
+ *
+ * This function reads atmospheric input data from a binary file stream (`in`)
+ * and stores the decoded values in the atmospheric structure `atm`. The expected
+ * binary format is predefined and must match the configuration provided in the
+ * control structure `ctl`. The function reads a header containing metadata
+ * describing the dataset, followed by the atmospheric fields and optional
+ * cloud/surface layer properties.
+ *
+ * The binary file layout is expected to follow this structure:
+ *   1. **Magic identifier** (4 bytes, ignored except for presence)
+ *   2. **Header integers**:
+ *      - Number of gas species (`ng`)
+ *      - Number of spectral windows (`nw`)
+ *      - Number of cloud layer extinction elements (`ncl`)
+ *      - Number of surface emissivity elements (`nsf`)
+ *      These must match the corresponding values in `ctl`.
+ *   3. **Data payload**:
+ *      - Number of points (`np`)
+ *      - Arrays of size `np` for time, altitude, longitude, latitude,
+ *        pressure, temperature
+ *      - For each gas species: mixing ratio array of length `np`
+ *      - For each spectral window: extinction coefficient array of length `np`
+ *   4. **Optional layered parameters**:
+ *      - Cloud layer altitude, thickness, and extinction (`ctl->ncl` values)
+ *      - Surface temperature and emissivity (`ctl->nsf` values)
+ *
+ * @param in
+ *        Pointer to an opened binary input file stream.
+ *
+ * @param ctl
+ *        Pointer to a control structure specifying expected dimensions of
+ *        atmospheric fields and optional layers. Used for header validation.
+ *
+ * @param atm
+ *        Pointer to an allocated atmospheric data structure that will be filled
+ *        with the contents of the binary file. All arrays must be allocated
+ *        prior to calling this function.
+ *
+ * @note This function does **not** allocate memory; it assumes storage for all
+ *       atmospheric variables already exists and matches the expected sizes.
+ *
+ * @warning Execution is terminated via `ERRMSG` if:
+ *          - The binary header does not match the control structure.
+ *          - The binary stream does not contain the expected amount of data.
+ *
+ * @return void
+ *
+ * @author Lars Hoffmann
+ */
+void read_atm_bin(
+  FILE * in,
   const ctl_t * ctl,
   atm_t * atm);
 
@@ -3728,43 +3853,48 @@ void timer(
   int mode);
 
 /**
- * @brief Write atmospheric profile data to a text file.
+ * @brief Write atmospheric data to a file.
  *
- * Exports an atmospheric state (pressure, temperature, and composition)
- * to an ASCII file for diagnostic output or reuse as model input.
+ * This function writes the atmospheric dataset stored in `atm` to the file
+ * specified by `filename`, optionally prefixed by `dirname`. The output format
+ * (ASCII or binary) is selected based on the atmospheric format flag
+ * `ctl->atmfmt`. The function creates the output file, delegates the writing
+ * process to the appropriate format-specific routine, and logs summary
+ * statistics of the written atmospheric data.
  *
- * @param[in] dirname   Output directory path (may be `NULL`).
- * @param[in] filename  Output file name.
- * @param[in] ctl       Pointer to control structure defining model setup.
- * @param[in] atm       Pointer to atmospheric data structure to write.
+ * Supported output formats:
+ *   - ASCII format (`ctl->atmfmt == 1`), written by `write_atm_asc()`
+ *   - Binary format (`ctl->atmfmt == 2`), written by `write_atm_bin()`
  *
- * @details
- * - Creates a human-readable, column-formatted file containing the following fields:
- *   1. Time (seconds since 2000-01-01T00:00Z)
- *   2. Altitude [km]
- *   3. Longitude [deg]
- *   4. Latitude [deg]
- *   5. Pressure [hPa]
- *   6. Temperature [K]
- *   7...N: Volume mixing ratios of each emitter (`ctl->emitter[]`) [ppv]
- *   N...M: Spectral-window extinction coefficients [km⁻¹]
- *   - Optionally appends:
- *     - Cloud parameters (height, depth, extinction vs. wavenumber)
- *     - Surface parameters (temperature and emissivity vs. wavenumber)
+ * The function writes:
+ *   - Atmospheric profiles: time, altitude, longitude, latitude, pressure,
+ *     temperature
+ *   - Gas mixing ratios for each emitter (`ctl->ng`)
+ *   - Extinction coefficients for each spectral window (`ctl->nw`)
+ *   - Optional cloud layer or surface parameters if enabled in `ctl`
  *
- * - The function automatically writes a detailed header describing each column.
- * - Each atmospheric profile is separated by a blank line if multiple times are present.
+ * After writing, the function logs minimum and maximum values of the written
+ * fields for verification and diagnostic purposes.
  *
- * @see read_atm, ctl_t, atm_t
+ * @param dirname
+ *        Optional directory in which the output file will be created.
+ *        If NULL, only `filename` is used.
  *
- * @note
- * - The output precision is sufficient for re-import with @ref read_atm().
- * - Units are consistent with JURASSIC conventions (km, hPa, K, ppv).
- * - Cloud and surface parameters are included only if defined in @ref ctl_t.
+ * @param filename
+ *        Name of the output file to be created and populated with atmospheric data.
  *
- * @warning
- * - The output file is overwritten if it already exists.
- * - The number of data points must not exceed the maximum defined by `NP`.
+ * @param ctl
+ *        Pointer to a control structure defining the output format and the sizes
+ *        of gas, spectral, cloud, and surface parameter arrays.
+ *
+ * @param atm
+ *        Pointer to the atmospheric data structure whose contents will be written.
+ *        All required fields must be initialized and contain `atm->np` valid data points.
+ *
+ * @note The function aborts execution using `ERRMSG` if the file cannot be created
+ *       or if an unsupported output format is requested.
+ *
+ * @return void
  *
  * @author
  * Lars Hoffmann
@@ -3772,6 +3902,127 @@ void timer(
 void write_atm(
   const char *dirname,
   const char *filename,
+  const ctl_t * ctl,
+  const atm_t * atm);
+
+/**
+ * @brief Write atmospheric data to an ASCII file.
+ *
+ * This function writes the contents of an atmospheric structure `atm` to an
+ * ASCII-formatted output stream `out`. A descriptive column header is generated
+ * first, documenting the meaning, units, and ordering of each data field.
+ * Atmospheric data points are then written line by line, with optional cloud
+ * and surface layer parameters appended if they are enabled in the control
+ * structure `ctl`.
+ *
+ * The output columns include, in order:
+ *   1. Time (seconds since 2000-01-01T00:00Z)
+ *   2. Altitude [km]
+ *   3. Longitude [deg]
+ *   4. Latitude [deg]
+ *   5. Pressure [hPa]
+ *   6. Temperature [K]
+ *   + Gas/emitter mixing ratios for each species (`ctl->ng`) [ppv]
+ *   + Extinction values for each spectral window (`ctl->nw`) [km^-1]
+ *
+ * If cloud layer properties are enabled (`ctl->ncl > 0`), the following are added:
+ *   - Cloud layer height [km]
+ *   - Cloud layer depth [km]
+ *   - Cloud extinction values for each frequency (`ctl->ncl`) [km^-1]
+ *
+ * If surface layer properties are enabled (`ctl->nsf > 0`), the following are added:
+ *   - Surface layer height [km]
+ *   - Surface layer pressure [hPa]
+ *   - Surface layer temperature [K]
+ *   - Surface emissivity values (`ctl->nsf`)
+ *
+ * @param out
+ *        Pointer to an open output file stream where the ASCII data is written.
+ *
+ * @param ctl
+ *        Pointer to a control structure defining the number of gases,
+ *        spectral windows, and whether cloud or surface layer information
+ *        should be included.
+ *
+ * @param atm
+ *        Pointer to the atmospheric structure containing the data to be written.
+ *        The function writes all `atm->np` data points.
+ *
+ * @note A blank line is inserted each time the time coordinate changes, grouping
+ *       data points belonging to different timestamps.
+ *
+ * @warning The function assumes that all arrays in `atm` are properly allocated
+ *          and populated. No validation of data ranges is performed here.
+ *
+ * @return void
+ *
+ * @author
+ * Lars Hoffmann
+ */
+void write_atm_asc(
+  FILE * out,
+  const ctl_t * ctl,
+  const atm_t * atm);
+
+/**
+ * @brief Write atmospheric data to a binary file.
+ *
+ * This function writes the atmospheric dataset contained in `atm` to a binary
+ * file stream `out`. The output format is compact and includes a file header
+ * followed by the serialized atmospheric fields. The format is compatible with
+ * `read_atm_bin()`, ensuring that files written by this function can be read
+ * back without loss of information.
+ *
+ * The binary file structure written is as follows:
+ *   1. **Magic identifier** `"ATM1"` (4 bytes)
+ *   2. **Header integers** describing dataset layout:
+ *        - Number of gas/emitter species (`ctl->ng`)
+ *        - Number of spectral windows (`ctl->nw`)
+ *        - Number of cloud extinction values (`ctl->ncl`)
+ *        - Number of surface emissivity values (`ctl->nsf`)
+ *   3. **Data payload**:
+ *        - Number of atmospheric points `np`
+ *        - Arrays of length `np` containing:
+ *            * Time
+ *            * Altitude
+ *            * Longitude
+ *            * Latitude
+ *            * Pressure
+ *            * Temperature
+ *        - Gas mixing ratios for all emitters (`ctl->ng × np`)
+ *        - Extinction coefficients for all spectral windows (`ctl->nw × np`)
+ *   4. **Optional parameters** written only if enabled in `ctl`:
+ *        - Cloud layer height, depth, and extinction values (`ctl->ncl`)
+ *        - Surface temperature and emissivity values (`ctl->nsf`)
+ *
+ * @param out
+ *        Pointer to an already opened binary output file stream where the
+ *        atmospheric data will be written.
+ *
+ * @param ctl
+ *        Pointer to a control structure specifying the number of gases,
+ *        spectral windows, and whether cloud or surface layer parameters
+ *        must be included.
+ *
+ * @param atm
+ *        Pointer to the atmospheric data structure containing values to be
+ *        written. All arrays must be populated and `atm->np` must contain the
+ *        number of valid atmospheric records.
+ *
+ * @note This function performs no range checking or validation of the `atm`
+ *       contents. It assumes that the memory layout matches expectations.
+ *
+ * @warning The binary structure must remain consistent with
+ *          `read_atm_bin()`; modifying either implementation requires
+ *          updating the other accordingly.
+ *
+ * @return void
+ *
+ * @author
+ * Lars Hoffmann
+ */
+void write_atm_bin(
+  FILE * out,
   const ctl_t * ctl,
   const atm_t * atm);
 

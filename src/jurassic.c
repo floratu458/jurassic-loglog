@@ -4792,7 +4792,7 @@ void read_atm(
 
   FILE *in;
 
-  char file[LEN], line[LEN], *tok;
+  char file[LEN];
 
   /* Init... */
   atm->np = 0;
@@ -4810,36 +4810,17 @@ void read_atm(
   if (!(in = fopen(file, "r")))
     ERRMSG("Cannot open file!");
 
-  /* Read line... */
-  while (fgets(line, LEN, in)) {
+  /* Read ASCII data... */
+  if (ctl->atmfmt == 1)
+    read_atm_asc(in, ctl, atm);
 
-    /* Read data... */
-    TOK(line, tok, "%lg", atm->time[atm->np]);
-    TOK(NULL, tok, "%lg", atm->z[atm->np]);
-    TOK(NULL, tok, "%lg", atm->lon[atm->np]);
-    TOK(NULL, tok, "%lg", atm->lat[atm->np]);
-    TOK(NULL, tok, "%lg", atm->p[atm->np]);
-    TOK(NULL, tok, "%lg", atm->t[atm->np]);
-    for (int ig = 0; ig < ctl->ng; ig++)
-      TOK(NULL, tok, "%lg", atm->q[ig][atm->np]);
-    for (int iw = 0; iw < ctl->nw; iw++)
-      TOK(NULL, tok, "%lg", atm->k[iw][atm->np]);
-    if (ctl->ncl > 0 && atm->np == 0) {
-      TOK(NULL, tok, "%lg", atm->clz);
-      TOK(NULL, tok, "%lg", atm->cldz);
-      for (int icl = 0; icl < ctl->ncl; icl++)
-	TOK(NULL, tok, "%lg", atm->clk[icl]);
-    }
-    if (ctl->nsf > 0 && atm->np == 0) {
-      TOK(NULL, tok, "%lg", atm->sft);
-      for (int isf = 0; isf < ctl->nsf; isf++)
-	TOK(NULL, tok, "%lg", atm->sfeps[isf]);
-    }
+  /* Read binary data... */
+  else if (ctl->atmfmt == 2)
+    read_atm_bin(in, ctl, atm);
 
-    /* Increment data point counter... */
-    if ((++atm->np) > NP)
-      ERRMSG("Too many data points!");
-  }
+  /* Error... */
+  else
+    ERRMSG("Unknown atmospheric data file format, check ATMFMT!");
 
   /* Close file... */
   fclose(in);
@@ -4882,6 +4863,131 @@ void read_atm(
 	atm->sft, atm->sfeps[0], atm->sfeps[ctl->nsf - 1]);
   } else
     LOG(2, "Surface layer: none");
+}
+
+/*****************************************************************************/
+
+void read_atm_asc(
+  FILE *in,
+  const ctl_t *ctl,
+  atm_t *atm) {
+
+  char line[LEN], *tok;
+
+  /* Init... */
+  atm->np = 0;
+
+  /* Read line... */
+  while (fgets(line, LEN, in)) {
+
+    /* Read data... */
+    TOK(line, tok, "%lg", atm->time[atm->np]);
+    TOK(NULL, tok, "%lg", atm->z[atm->np]);
+    TOK(NULL, tok, "%lg", atm->lon[atm->np]);
+    TOK(NULL, tok, "%lg", atm->lat[atm->np]);
+    TOK(NULL, tok, "%lg", atm->p[atm->np]);
+    TOK(NULL, tok, "%lg", atm->t[atm->np]);
+    for (int ig = 0; ig < ctl->ng; ig++)
+      TOK(NULL, tok, "%lg", atm->q[ig][atm->np]);
+    for (int iw = 0; iw < ctl->nw; iw++)
+      TOK(NULL, tok, "%lg", atm->k[iw][atm->np]);
+    if (ctl->ncl > 0 && atm->np == 0) {
+      TOK(NULL, tok, "%lg", atm->clz);
+      TOK(NULL, tok, "%lg", atm->cldz);
+      for (int icl = 0; icl < ctl->ncl; icl++)
+	TOK(NULL, tok, "%lg", atm->clk[icl]);
+    }
+    if (ctl->nsf > 0 && atm->np == 0) {
+      TOK(NULL, tok, "%lg", atm->sft);
+      for (int isf = 0; isf < ctl->nsf; isf++)
+	TOK(NULL, tok, "%lg", atm->sfeps[isf]);
+    }
+
+    /* Increment data point counter... */
+    if ((++atm->np) > NP)
+      ERRMSG("Too many data points!");
+  }
+}
+
+/*****************************************************************************/
+
+void read_atm_bin(
+  FILE *in,
+  const ctl_t *ctl,
+  atm_t *atm) {
+
+  /* Read header... */
+  char magic[4];
+  FREAD(magic, char,
+	4,
+	in);
+  int ng, nw, ncl, nsf;
+  FREAD(&ng, int,
+	1,
+	in);
+  FREAD(&nw, int,
+	1,
+	in);
+  FREAD(&ncl, int,
+	1,
+	in);
+  FREAD(&nsf, int,
+	1,
+	in);
+  if (ng != ctl->ng || nw != ctl->nw || ncl != ctl->ncl || nsf != ctl->nsf)
+    ERRMSG("Error reading file header!");
+
+  /* Read data... */
+  size_t np;
+  FREAD(&np, size_t,
+	1,
+	in);
+  atm->np = (int) np;
+  FREAD(atm->time, double,
+	np,
+	in);
+  FREAD(atm->z, double,
+	np,
+	in);
+  FREAD(atm->lon, double,
+	np,
+	in);
+  FREAD(atm->lat, double,
+	np,
+	in);
+  FREAD(atm->p, double,
+	np,
+	in);
+  FREAD(atm->t, double,
+	np,
+	in);
+  for (int ig = 0; ig < ctl->ng; ig++)
+    FREAD(atm->q[ig], double,
+	  np,
+	  in);
+  for (int iw = 0; iw < ctl->nw; iw++)
+    FREAD(atm->k[iw], double,
+	  np,
+	  in);
+  if (ctl->ncl > 0) {
+    FREAD(&atm->clz, double,
+	  1,
+	  in);
+    FREAD(&atm->cldz, double,
+	  1,
+	  in);
+    FREAD(atm->clk, double,
+	    (size_t) ctl->ncl,
+	  in);
+  }
+  if (ctl->nsf) {
+    FREAD(&atm->sft, double,
+	  1,
+	  in);
+    FREAD(atm->sfeps, double,
+	    (size_t) ctl->nsf,
+	  in);
+  }
 }
 
 /*****************************************************************************/
@@ -4946,6 +5052,10 @@ void read_ctl(
   /* Emissivity look-up tables... */
   scan_ctl(argc, argv, "TBLBASE", -1, "-", ctl->tblbase);
   ctl->tblfmt = (int) scan_ctl(argc, argv, "TBLFMT", -1, "1", NULL);
+
+  /* File formats... */
+  ctl->atmfmt = (int) scan_ctl(argc, argv, "ATMFMT", -1, "1", NULL);
+  ctl->obsfmt = (int) scan_ctl(argc, argv, "OBSFMT", -1, "1", NULL);
 
   /* Hydrostatic equilibrium... */
   ctl->hydz = scan_ctl(argc, argv, "HYDZ", -1, "-999", NULL);
@@ -6082,8 +6192,6 @@ void write_atm(
 
   char file[LEN];
 
-  int n = 6;
-
   /* Set filename... */
   if (dirname != NULL)
     sprintf(file, "%s/%s", dirname, filename);
@@ -6096,6 +6204,66 @@ void write_atm(
   /* Create file... */
   if (!(out = fopen(file, "w")))
     ERRMSG("Cannot create file!");
+
+  /* Write ASCII file... */
+  if (ctl->atmfmt == 1)
+    write_atm_asc(out, ctl, atm);
+
+  /* Write binary file... */
+  else if (ctl->atmfmt == 2)
+    write_atm_bin(out, ctl, atm);
+
+  /* Error... */
+  else
+    ERRMSG("Unknown file format, check ATMFMT!");
+
+  /* Close file... */
+  fclose(out);
+
+  /* Write info... */
+  double mini, maxi;
+  LOG(2, "Number of data points: %d", atm->np);
+  gsl_stats_minmax(&mini, &maxi, atm->time, 1, (size_t) atm->np);
+  LOG(2, "Time range: %.2f ... %.2f s", mini, maxi);
+  gsl_stats_minmax(&mini, &maxi, atm->z, 1, (size_t) atm->np);
+  LOG(2, "Altitude range: %g ... %g km", mini, maxi);
+  gsl_stats_minmax(&mini, &maxi, atm->lon, 1, (size_t) atm->np);
+  LOG(2, "Longitude range: %g ... %g deg", mini, maxi);
+  gsl_stats_minmax(&mini, &maxi, atm->lat, 1, (size_t) atm->np);
+  LOG(2, "Latitude range: %g ... %g deg", mini, maxi);
+  gsl_stats_minmax(&mini, &maxi, atm->p, 1, (size_t) atm->np);
+  LOG(2, "Pressure range: %g ... %g hPa", maxi, mini);
+  gsl_stats_minmax(&mini, &maxi, atm->t, 1, (size_t) atm->np);
+  LOG(2, "Temperature range: %g ... %g K", mini, maxi);
+  for (int ig = 0; ig < ctl->ng; ig++) {
+    gsl_stats_minmax(&mini, &maxi, atm->q[ig], 1, (size_t) atm->np);
+    LOG(2, "Emitter %s range: %g ... %g ppv", ctl->emitter[ig], mini, maxi);
+  }
+  for (int iw = 0; iw < ctl->nw; iw++) {
+    gsl_stats_minmax(&mini, &maxi, atm->k[iw], 1, (size_t) atm->np);
+    LOG(2, "Extinction range (window %d): %g ... %g km^-1", iw, mini, maxi);
+  }
+  if (ctl->ncl > 0 && atm->np == 0) {
+    LOG(2, "Cloud layer: z= %g km | dz= %g km | k= %g ... %g km^-1",
+	atm->clz, atm->cldz, atm->clk[0], atm->clk[ctl->ncl - 1]);
+  } else
+    LOG(2, "Cloud layer: none");
+  if (ctl->nsf > 0 && atm->np == 0) {
+    LOG(2,
+	"Surface layer: T_s = %g K | eps= %g ... %g",
+	atm->sft, atm->sfeps[0], atm->sfeps[ctl->nsf - 1]);
+  } else
+    LOG(2, "Surface layer: none");
+}
+
+/*****************************************************************************/
+
+void write_atm_asc(
+  FILE *out,
+  const ctl_t *ctl,
+  const atm_t *atm) {
+
+  int n = 6;
 
   /* Write header... */
   fprintf(out,
@@ -6147,44 +6315,82 @@ void write_atm(
     }
     fprintf(out, "\n");
   }
+}
 
-  /* Close file... */
-  fclose(out);
+/*****************************************************************************/
 
-  /* Write info... */
-  double mini, maxi;
-  LOG(2, "Number of data points: %d", atm->np);
-  gsl_stats_minmax(&mini, &maxi, atm->time, 1, (size_t) atm->np);
-  LOG(2, "Time range: %.2f ... %.2f s", mini, maxi);
-  gsl_stats_minmax(&mini, &maxi, atm->z, 1, (size_t) atm->np);
-  LOG(2, "Altitude range: %g ... %g km", mini, maxi);
-  gsl_stats_minmax(&mini, &maxi, atm->lon, 1, (size_t) atm->np);
-  LOG(2, "Longitude range: %g ... %g deg", mini, maxi);
-  gsl_stats_minmax(&mini, &maxi, atm->lat, 1, (size_t) atm->np);
-  LOG(2, "Latitude range: %g ... %g deg", mini, maxi);
-  gsl_stats_minmax(&mini, &maxi, atm->p, 1, (size_t) atm->np);
-  LOG(2, "Pressure range: %g ... %g hPa", maxi, mini);
-  gsl_stats_minmax(&mini, &maxi, atm->t, 1, (size_t) atm->np);
-  LOG(2, "Temperature range: %g ... %g K", mini, maxi);
-  for (int ig = 0; ig < ctl->ng; ig++) {
-    gsl_stats_minmax(&mini, &maxi, atm->q[ig], 1, (size_t) atm->np);
-    LOG(2, "Emitter %s range: %g ... %g ppv", ctl->emitter[ig], mini, maxi);
+void write_atm_bin(
+  FILE *out,
+  const ctl_t *ctl,
+  const atm_t *atm) {
+
+  /* Write header... */
+  FWRITE("ATM1", char,
+	 4,
+	 out);
+  FWRITE(&ctl->ng, int,
+	 1,
+	 out);
+  FWRITE(&ctl->nw, int,
+	 1,
+	 out);
+  FWRITE(&ctl->ncl, int,
+	 1,
+	 out);
+  FWRITE(&ctl->nsf, int,
+	 1,
+	 out);
+
+  /* Write data... */
+  size_t np = (size_t) atm->np;
+  FWRITE(&np, size_t,
+	 1,
+	 out);
+  FWRITE(atm->time, double,
+	 np,
+	 out);
+  FWRITE(atm->z, double,
+	 np,
+	 out);
+  FWRITE(atm->lon, double,
+	 np,
+	 out);
+  FWRITE(atm->lat, double,
+	 np,
+	 out);
+  FWRITE(atm->p, double,
+	 np,
+	 out);
+  FWRITE(atm->t, double,
+	 np,
+	 out);
+  for (int ig = 0; ig < ctl->ng; ig++)
+    FWRITE(atm->q[ig], double,
+	   np,
+	   out);
+  for (int iw = 0; iw < ctl->nw; iw++)
+    FWRITE(atm->k[iw], double,
+	   np,
+	   out);
+  if (ctl->ncl > 0) {
+    FWRITE(&atm->clz, double,
+	   1,
+	   out);
+    FWRITE(&atm->cldz, double,
+	   1,
+	   out);
+    FWRITE(atm->clk, double,
+	     (size_t) ctl->ncl,
+	   out);
   }
-  for (int iw = 0; iw < ctl->nw; iw++) {
-    gsl_stats_minmax(&mini, &maxi, atm->k[iw], 1, (size_t) atm->np);
-    LOG(2, "Extinction range (window %d): %g ... %g km^-1", iw, mini, maxi);
+  if (ctl->nsf > 0) {
+    FWRITE(&atm->sft, double,
+	   1,
+	   out);
+    FWRITE(atm->sfeps, double,
+	     (size_t) ctl->nsf,
+	   out);
   }
-  if (ctl->ncl > 0 && atm->np == 0) {
-    LOG(2, "Cloud layer: z= %g km | dz= %g km | k= %g ... %g km^-1",
-	atm->clz, atm->cldz, atm->clk[0], atm->clk[ctl->ncl - 1]);
-  } else
-    LOG(2, "Cloud layer: none");
-  if (ctl->nsf > 0 && atm->np == 0) {
-    LOG(2,
-	"Surface layer: T_s = %g K | eps= %g ... %g",
-	atm->sft, atm->sfeps[0], atm->sfeps[ctl->nsf - 1]);
-  } else
-    LOG(2, "Surface layer: none");
 }
 
 /*****************************************************************************/

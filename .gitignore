@@ -6,6 +6,7 @@ projects/*
 !projects/limb/
 !projects/nadir/
 src/*.o
+src/atmfmt
 src/brightness
 src/climatology
 src/filter
