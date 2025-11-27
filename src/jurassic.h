@@ -2779,6 +2779,66 @@ size_t obs2y(
   int *ira);
 
 /**
+ * @brief Perform optimal estimation retrieval using Levenberg–Marquardt minimization.
+ *
+ * This function performs an optimal estimation of atmospheric state variables based on
+ * measured observations, a priori information, and forward radiative transfer modeling.
+ * The estimation follows the Rodgers (2000) formalism and uses a Levenberg–Marquardt
+ * algorithm to iteratively minimize the cost function:
+ *
+ *   χ² = (x - x_a)^T S_a⁻¹ (x - x_a) + (y - F(x))^T S_ε⁻¹ (y - F(x)),
+ *
+ * where `x` is the atmospheric state vector, `x_a` is its a priori estimate,
+ * `S_a` is the a priori covariance matrix, `y` is the measurement vector,
+ * `F(x)` is the forward model, and `S_ε` is the measurement error covariance.
+ *
+ * The routine updates the atmospheric state until convergence criteria are met
+ * or the maximum number of iterations is reached. Optionally, the full retrieval
+ * error budget and averaging kernel analysis are computed.
+ *
+ * @param[out] ret       Retrieval configuration and output container. Determines convergence,
+ *                       kernel recomputation frequency, and error analysis options.
+ * @param[in]  ctl       Control parameters describing problem setup (grids, species, etc.).
+ * @param[in]  tbl       Lookup tables required by the forward model.
+ * @param[in]  obs_meas  Measured observations used as input.
+ * @param[out] obs_i     Intermediate and final modeled observations corresponding to the retrieved state.
+ * @param[in]  atm_apr   A priori atmospheric state used as reference.
+ * @param[out] atm_i     Atmospheric state vector to be iteratively retrieved and updated.
+ * @param[out] chisq     Final value of the cost function (χ²) upon convergence.
+ *
+ * @note
+ * - Aborts early if the problem dimension is zero (no observations or unknowns).
+ * - State updates are constrained to physically meaningful bounds (pressure, temperature, etc.).
+ * - Matrix computations are performed using GSL (GNU Scientific Library).
+ * - If retrieval error analysis is enabled (`ret->err_ana`), the function produces:
+ *   - Retrieval covariance matrix
+ *   - Error decomposition (noise, forward model)
+ *   - Gain matrix
+ *   - Averaging kernel matrix and diagnostic analysis
+ *
+ * @warning
+ * Input structures must be properly initialized. The function allocates several GSL matrices
+ * and vectors, all of which are freed before returning. The caller is responsible only for
+ * memory outside this function.
+ *
+ * @see formod(), cost_function(), analyze_avk(), set_cov_apr(), set_cov_meas()
+ *
+ * @par Reference
+ *   Rodgers, C. D. (2000). *Inverse Methods for Atmospheric Sounding: Theory and Practice.*
+ *
+ * @author Lars Hoffmann
+ */
+void optimal_estimation(
+  ret_t * ret,
+  ctl_t * ctl,
+  tbl_t * tbl,
+  obs_t * obs_meas,
+  obs_t * obs_i,
+  atm_t * atm_apr,
+  atm_t * atm_i,
+  double *chisq);
+
+/**
  * @brief Perform line-of-sight (LOS) ray tracing through the atmosphere.
  *
  * Computes the geometric path of a viewing ray from the observer to the
