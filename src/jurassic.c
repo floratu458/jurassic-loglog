@@ -4921,6 +4921,9 @@ void read_atm_bin(
   FREAD(magic, char,
 	4,
 	in);
+  if (memcmp(magic, "ATM1", 4) != 0)
+    ERRMSG("Invalid magic string!");
+  
   int ng, nw, ncl, nsf;
   FREAD(&ng, int,
 	1,
@@ -5285,6 +5288,9 @@ void read_obs_bin(
   FREAD(magic, char,
 	4,
 	in);
+  if (memcmp(magic, "OBS1", 4) != 0)
+    ERRMSG("Invalid magic string!");
+  
   int nd;
   FREAD(&nd, int,
 	1,
