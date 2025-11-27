@@ -32,4 +32,5 @@ ERR_FORMOD[0] = 1.0
 ERR_FORMOD[1] = 1.0
 
 # Output...
+ERR_ANA = 1
 WRITE_MATRIX = 1

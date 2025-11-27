@@ -5691,7 +5691,7 @@ void read_ret(
   ret->conv_dmin = scan_ctl(argc, argv, "CONV_DMIN", -1, "0.1", NULL);
 
   /* Error analysis... */
-  ret->err_ana = (int) scan_ctl(argc, argv, "ERR_ANA", -1, "1", NULL);
+  ret->err_ana = (int) scan_ctl(argc, argv, "ERR_ANA", -1, "0", NULL);
 
   for (int id = 0; id < ctl->nd; id++)
     ret->err_formod[id] = scan_ctl(argc, argv, "ERR_FORMOD", id, "0", NULL);
