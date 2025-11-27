@@ -36,6 +36,12 @@ $jurassic/raytrace limb.ctl data/obs.tab data/atm.tab data/raytrace.tab LOSBASE 
 # Test hydrostatic build up...
 $jurassic/hydrostatic limb.ctl data/atm.tab data/atm_hyd.tab HYDZ 0.0
 
+# Test binary file-I/O...
+$jurassic/atmfmt limb.ctl data/atm.tab 1 data/atm.bin 2
+$jurassic/atmfmt limb.ctl data/atm.bin 2 data/atm_from_bin.tab 1
+$jurassic/obsfmt limb.ctl data/rad.tab 1 data/rad.bin 2
+$jurassic/obsfmt limb.ctl data/rad.bin 2 data/rad_from_bin.tab 1
+
 # Compare files...
 echo -e "\nCompare results..."
 error=0
