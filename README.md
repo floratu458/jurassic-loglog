@@ -22,20 +22,76 @@ remote sensing measurements.
 [![doi](https://zenodo.org/badge/DOI/10.5281/zenodo.4572889.svg)](https://doi.org/10.5281/zenodo.4572889)
 [![SWH](https://archive.softwareheritage.org/badge/origin/https://github.com/slcs-jsc/jurassic/)](https://archive.softwareheritage.org/browse/origin/?origin_url=https://github.com/slcs-jsc/jurassic)
 
+## Introduction
+
+The Jülich Rapid Spectral Simulation Code (JURASSIC) is a radiative
+transfer model for simulating infrared radiation in the Earth's
+atmosphere. It is designed to provide a balance between computational
+efficiency and physical accuracy, making it suitable for a range of
+applications in atmospheric and remote sensing research.
+
+JURASSIC applies established spectral approximations together with
+precomputed lookup tables derived from detailed line-by-line
+calculations to represent gaseous absorption, emission, and
+transmission. This approach enables reliable simulations across large
+datasets or ensembles without the runtime demands of full line-by-line
+models.
+
+Typical use cases include satellite radiance simulations, sensitivity
+studies, retrieval algorithm development, and the analysis of
+atmospheric composition. With its modular design and support for
+high-performance computing environments, JURASSIC offers a practical
+tool for studying radiative processes in the middle and upper
+atmosphere.
+
 ## Features
 
-* JURASSIC uses the emissivity growth approximation (EGA) or the
-  Curtis-Godson approximation (CGA) to conduct infrared radiative
-  transfer calculations. Band transmittances are obtained from
-  pre-calculated look-up tables from line-by-line calculations.
-* The model was carefully tested in intercomparisons with the
-  Karlsruhe Optimized and Precise Radiative Transfer Algorithm
-  (KOPRA), the Reference Forward Model (RFM), and the Stand-alone AIRS
-  Radiative Transfer Algorithm (SARTA).
-* JURASSIC features an MPI-OpenMP hybrid parallelization for efficient
-  use on HPC systems.
-* Distributed open source under the terms and conditions of the
-  GNU GPL.
+JURASSIC provides a comprehensive and efficient framework for infrared
+radiative transfer simulations, offering key capabilities to support
+research, operational, and development workflows:
+
+- **Efficient radiative transfer approximations**: JURASSIC implements
+    the Emissivity Growth Approximation (EGA) and the Curtis–Godson
+    Approximation (CGA) to model infrared radiative transfer. These
+    methods enable rapid yet accurate simulations of atmospheric
+    radiances and transmittances across a broad spectral range.
+
+- **High-fidelity spectroscopy via lookup tables**: Band
+    transmittances are derived from pre-calculated lookup tables based
+    on detailed line-by-line spectroscopy. This approach maintains
+    spectroscopic accuracy while largely reducing computational cost,
+    making the model suitable for large-scale and near-real-time
+    applications.
+
+- **Optimal estimation retrieval framework**: In addition to forward
+    modelling, JURASSIC includes an optimal estimation retrieval
+    module for inverse modelling of atmospheric state variables. This
+    enables the derivation of geophysical parameters such as
+    temperature or trace gas volume mixing ratios from observed
+    radiances, providing a complete forward–inverse modelling system
+    within the same framework.
+
+- **Flexible configuration and modular design**: The model supports
+    customizable spectral bands, instrument configurations, and
+    atmospheric input fields, allowing users to integrate JURASSIC
+    into diverse workflows and existing analysis pipelines.
+
+- **Validated against established reference models**: The model has
+    undergone extensive benchmarking and intercomparison studies with
+    leading radiative transfer codes such as KOPRA, RFM, and SARTA,
+    ensuring reliable performance and scientific credibility across a
+    wide range of atmospheric conditions.
+
+- **Hybrid parallelization for HPC environments**: JURASSIC enables
+    hybrid MPI–OpenMP parallelization for highly efficient execution
+    on multicore CPUs and HPC clusters, enabling the processing of
+    large datasets, global simulations, or long time series with
+    excellent scalability.
+
+- **Open source and community oriented**: JURASSIC is distributed
+    under the GNU General Public License (GPL), fostering
+    transparency, collaboration, and community-driven development
+    within the atmospheric and remote sensing research community.
 
 ## Getting started
 
@@ -48,46 +104,65 @@ Library](https://www.gnu.org/software/gsl) is required for numerical
 calculations. A copy of this library can be found in the git
 repository.
 
-Start by downloading the source code from the git repository:
+### Installation
+
+To install JURASSIC, follow these steps:
+
+**1. Download JURASSIC**
+
+Get the latest or a previous version from the
+[JURASSIC releases](https://github.com/slcs-jsc/jurassic/releases) page. After
+downloading, extract the release file:
+
+    unzip jurassic-x.y.zip
+
+Alternatively, to get the latest development version, clone the GitHub repository:
 
     git clone https://github.com/slcs-jsc/jurassic.git
 
-To update an existing installation use:
+**2. Install required libraries**
 
-    git pull https://github.com/slcs-jsc/jurassic.git
+The JURASSIC git repository includes a copy of the GNU GSL library
+that can be compiled and installed using a build script:
 
-### Installation
+    cd [jurassic_directory]/libs
+    ./build.sh -a
 
-First, compile the GSL library needed for JURASSIC by using the build
-script:
+Alternatively, if you prefer to use existing system libraries, install
+the dependencies manually.
 
-    cd [jurassic_directory]/libs ./build.sh
+**3. Configure the Makefile**
 
-Next, change to the source directory, edit the Makefile according to
-your needs, and try to compile the code:
+Navigate to the source directory and adjust the `Makefile` as needed:
 
     cd [jurassic_directory]/src
     emacs Makefile
-    make
 
-The binaries will be linked statically, i.e., they can be copied and
-run on other machines. Sometimes this causes problems. In this case
-remove the '-static' flag from the CFLAGS in the Makefile and compile
-again.
+Pay special attention to the following settings:
 
-By default we use rather strict compiler warnings. All warning
-messages will be turned into errors and no binaries will be
-produced. This behavior is enforced by the flag '-Werror'.
+* Edit the `LIBDIR` and `INCDIR` paths to point to the directories
+  where the necessary libraries are located on your system.
 
-The binaries will remain in the jurassic/src/ directory.
+* By default, the JURASSIC binaries are linked dynamically. Ensure
+  that the `LD_LIBRARY_PATH` is properly configured to include the
+  paths to the shared libraries. If you prefer static linking, you can
+  enable it by setting the `STATIC` flag, which allows you to copy and
+  use the binaries on other machines. However, in some cases, either
+  static or dynamic linking may not be feasible or could cause
+  specific issues.
 
-To run the test cases to check the installation, please use:
+**4. Compile and test the installation**
+
+Once the Makefile is configured, compile the code using:
+
+    make [-j]
+
+To verify the installation, run the test suite:
 
     make check
 
-This will run sequentially through a set of tests. The execution of
-the tests will stop if any of the tests fails. Please inspect the log
-messages.
+This will execute a series of tests sequentially. If any test fails,
+check the log messages for further details.
 
 ### Run the examples
 
