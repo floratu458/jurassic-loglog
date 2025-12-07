@@ -9,6 +9,8 @@ src/*.o
 src/atmfmt
 src/brightness
 src/climatology
+src/day2doy
+src/doy2day
 src/filter
 src/formod
 src/hydrostatic
