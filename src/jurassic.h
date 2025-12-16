@@ -595,6 +595,29 @@
    : LIN(x0, y0, x1, y1, x))
 
 /**
+ * @brief Compute logarithmic interpolation in x and y.
+ *
+ * Performs interpolation assuming exponential variation in the x and y-axis
+ * (logarithmic in x and y). If y₁/y₀ is nonpositive, reverts to linear interpolation.
+ *
+ * @param[in] x0 Lower x-value.
+ * @param[in] y0 Function value at x₀.
+ * @param[in] x1 Upper x-value.
+ * @param[in] y1 Function value at x₁.
+ * @param[in] x Interpolation point.
+ *
+ * @return Interpolated y-value at x.
+ *
+ * @see LIN, LOGX, LOGY
+ *
+ */
+#define LOGXY(x0, y0, x1, y1, x) \
+  (((x0) > 0 && (x1) > 0 && (x) > 0 && (y0) > 0 && (y1) > 0) \
+   ? ((y0) * exp(log((y1)/(y0)) * log((x)/(x0)) / log((x1)/(x0)))) \
+   : LIN(x0, y0, x1, y1, x))
+
+
+/**
  * @brief Determine the maximum of two values.
  *
  * Returns the greater of two scalar values.
