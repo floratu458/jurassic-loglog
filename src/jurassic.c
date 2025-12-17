@@ -4292,7 +4292,7 @@ inline double intpol_tbl_u(
 
   /* Interpolation... */
   const int idx = locate_tbl(eps_arr, nu, eps);
-  return LIN(eps_arr[idx], u_arr[idx], eps_arr[idx + 1], u_arr[idx + 1], eps);
+  return LOGXY(eps_arr[idx], u_arr[idx], eps_arr[idx + 1], u_arr[idx + 1], eps);
 }
 
 /*****************************************************************************/
